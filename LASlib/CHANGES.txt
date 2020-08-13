@@ -1,3 +1,27 @@
+18 June 2020 -- LASlib: firt new LAStransforms that allow 16 temporary registers for intermediate computations
+ 9 May 2020 -- LASlib and all LAStools: fixed PLY reader for files written by Cloud Compare with odd header entry
+10 March 2020 -- LASlib and all LAStools: enhanced PLY reader to also support "uint" attributes and properties
+ 9 March 2020 -- LASlib and all LAStools: fixed PLY reader for "double" or "float64" attributes and properties24 February 2020 -- las2las: check horizontal datum when reprojecting and also set OCG WKT when point type >= 6
+18 February 2020 -- lasinfo: report classification histogram for 'withhelp', 'keypoint', 'synthetic', 'overlap' flagged points 
+15 February 2020 -- LASlib: new transforms '-scale_RGB_to_8bit' and '-scale_RGB_to_16bit' only scale RGB values if needed
+14 February 2020 -- LASlib: new '-multiply_divided_intensity_into_RGB_green 255' '-multiply_scaled_intensity_into_RGB_red 0.4'
+14 February 2020 -- LASlib: new filter '-keep_RGB_greenness 10 65535' keep points if 2G-R-B falls into specified interval
+10 February 2020 -- lasinfo: handle up to 10 attributes with '-histo attribute0 1.0' through '-histo attribute9 0.1'
+10 February 2020 -- LASlib: new transform '-load_attribute_from_text 0 new_attribute.txt'
+ 9 February 2020 -- las2las: add "additional attributes" with '-add_attribute data_type name description [scale offset no_data]'
+ 8 February 2020 -- LASlib: new transforms '-copy_user_data_into_classification' and '-set_attribute 0 1.5'
+30 January 2020 -- LASlib: new transforms to '-copy_attribute_into_x 4' and '-copy_attribute_into_y 5'
+28 January 2020 -- LASlib: PLY point cloud reader stores integer properties as "additional attributes" using "extra bytes"
+ 6 January 2020 -- lasvalidate: fix for LAS 1.4 files with extra bytes and new option '-tile_size 1000' to check tile extend
+24 December 2019 -- LASzip, LASlib, all LAStools: bug fix for file names with special characters like 'Töögrupid.laz'
+16 November 2019 -- LASlib: bug fix in command line parsing of '-inside ... ... ... ...' followed by other commands
+ 9 November 2019 -- laszip: fix for selective decompression of more than 16 extra bytes in new point types 6 or higher
+ 4 November 2019 -- lasdiff: new option '-wildcards folder1/ayu*.laz folder2/ayu*.laz' compares folder of LAS/LAZ files 
+ 3 November 2019 -- lasindex: new option '-meta' produces ASCII file list with number of points, bounding box, file name 
+17 October 2019 -- lasinfo, las2las: support horizontal datum NAD83(PA11) and vertical datum NZVD2016
+16 October 2019 -- LASlib: new option '-copy_scanner_channel_into_user_data' for new LAS 1.4 point types 6 or higher
+26 September 2019 -- open source tools ignore '-fail' which makes closed source tools fail if license expired / not found
+16 September 2019 -- lasindex: new option '-dont_reindex' to prevent recreating of already existing LAX files
 10 August 2019 -- las2las: set exotic vertical datums via '-vertical_epsg 5607' (= "Bora Bora SAU 2001 height")
 18 July 2019 -- txt2las: bug fix in functionality for adding '-add_attribute' in extra bytes introduced in late 2018
 11 July 2019 -- LASlib, LAStools: report file name when LASreader has 'ERROR: 'end-of-file during chunk with index 3254'

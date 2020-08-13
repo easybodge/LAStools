@@ -110,6 +110,7 @@ struct GeoProjectionGeoKeys
 #define GEO_GCS_NAD83_2011         6318
 #define GEO_GCS_NAD83_PA11         6322
 #define GEO_GCS_NAD83_CORS96       6783
+#define GEO_GCS_GDA2020            7844
 
 #define GEO_SPHEROID_AIRY          7001
 #define GEO_SPHEROID_BESSEL1841    7004
@@ -146,7 +147,7 @@ class GeoProjectionEllipsoid
 {
 public:
   int id;
-  char* name;
+  char const* name;
   double equatorial_radius;
   double polar_radius;
   double eccentricity_squared;
@@ -160,9 +161,10 @@ class GeoProjectionParameters
 {
 public:
   int type;
-  char name[256];
   short geokey;
-  GeoProjectionParameters() { type = -1; geokey = 0; };
+  short datum;
+  char name[256];
+  GeoProjectionParameters() { type = -1; geokey = 0; datum = 0; name[0] = '\0'; };
 };
 
 class GeoProjectionParametersUTM : public GeoProjectionParameters
@@ -408,6 +410,10 @@ public:
 
   GeoProjectionConverter();
   ~GeoProjectionConverter();
+
+  // check before any reprojection
+
+  bool check_horizontal_datum_before_reprojection();
 
   // from current projection to longitude/latitude/elevation_in_meter
 

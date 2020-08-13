@@ -66,7 +66,7 @@ BOOL LASreaderPLY::open(const CHAR* file_name, U8 point_type, BOOL populate_head
 
 BOOL LASreaderPLY::open(FILE* file, const CHAR* file_name, U8 point_type, BOOL populate_header)
 {
-  int i;
+  int i,j;
 
   if (file == 0)
   {
@@ -383,10 +383,10 @@ BOOL LASreaderPLY::open(FILE* file, const CHAR* file_name, U8 point_type, BOOL p
       // update the min and max of attributes in extra bytes
       if (number_attributes)
       {
-        for (i = 0; i < number_attributes; i++)
+        for (j = 0; j < number_attributes; j++)
         {
-          header.attributes[i].update_min(point.extra_bytes + header.attribute_starts[i]);
-          header.attributes[i].update_max(point.extra_bytes + header.attribute_starts[i]);
+          header.attributes[j].update_min(point.extra_bytes + header.attribute_starts[j]);
+          header.attributes[j].update_max(point.extra_bytes + header.attribute_starts[j]);
         }
       }
     }
@@ -1015,7 +1015,7 @@ F64 LASreaderPLY::read_binary_value(CHAR type)
   }
   else if (type == 'd')
   {
-    streamin->get32bitsLE((U8*)&value);
+    streamin->get64bitsLE((U8*)&value);
   }
   else if (type == 'C')
   {
@@ -1579,6 +1579,10 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
     {
       // ignore comments
     }
+    else if (strncmp(line, "obj_info", 8) == 0)
+    {
+      // ignore obj_info
+    }
     else if (strncmp(line, "element", 7) == 0)
     {
       if (strncmp(&line[8], "vertex", 6) == 0)
@@ -1688,19 +1692,19 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
         if (strncmp(&line[offset], "x", 1) == 0)
         {
           parse_string[items] = 'x';
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
         else if (strncmp(&line[offset], "y", 1) == 0)
         {
           parse_string[items] = 'y';
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
         else if (strncmp(&line[offset], "z", 1) == 0)
         {
           parse_string[items] = 'z';
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
         else if (strncmp(&line[offset], "nx", 2) == 0)
@@ -1708,7 +1712,7 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
           I32 num = number_attributes;
           add_attribute(LAS_ATTRIBUTE_I16, "nx", "normal x coordinate", 0.00005);
           parse_string[items] = '0' + num;
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
         else if (strncmp(&line[offset], "ny", 2) == 0)
@@ -1716,7 +1720,7 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
           I32 num = number_attributes;
           add_attribute(LAS_ATTRIBUTE_I16, "ny", "normal y coordinate", 0.00005);
           parse_string[items] = '0' + num;
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
         else if (strncmp(&line[offset], "nz", 2) == 0)
@@ -1724,7 +1728,7 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
           I32 num = number_attributes;
           add_attribute(LAS_ATTRIBUTE_I16, "nz", "normal z coordinate", 0.00005);
           parse_string[items] = '0' + num;
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
         else
@@ -1736,9 +1740,9 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
           memset(description, 0, 32);
           sscanf(&line[offset], "%15s", name);
           sscanf(&line[offset], "%31s", description);
-          add_attribute(LAS_ATTRIBUTE_F32, name, description);
+          add_attribute(LAS_ATTRIBUTE_F64, name, description);
           parse_string[items] = '0' + num;
-          type_string[items] = 'f';
+          type_string[items] = 'd';
           items++;
         }
       }
@@ -1782,6 +1786,34 @@ BOOL LASreaderPLY::parse_header(BOOL quiet)
           type_string[items] = 'f';
           items++;
         }
+      }
+      else if (strncmp(&line[9], "int", 3) == 0)
+      {
+        I32 num = number_attributes;
+        CHAR name[16];
+        CHAR description[32];
+        memset(name, 0, 16);
+        memset(description, 0, 32);
+        sscanf(&line[13], "%15s", name);
+        sscanf(&line[13], "%31s", description);
+        add_attribute(LAS_ATTRIBUTE_I32, name, description);
+        parse_string[items] = '0' + num;
+        type_string[items] = 'i';
+        items++;
+      }
+      else if (strncmp(&line[9], "uint", 4) == 0)
+      {
+        I32 num = number_attributes;
+        CHAR name[16];
+        CHAR description[32];
+        memset(name, 0, 16);
+        memset(description, 0, 32);
+        sscanf(&line[13], "%15s", name);
+        sscanf(&line[13], "%31s", description);
+        add_attribute(LAS_ATTRIBUTE_I32, name, description);
+        parse_string[items] = '0' + num;
+        type_string[items] = 'I';
+        items++;
       }
       else
       {     

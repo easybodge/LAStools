@@ -31,11 +31,11 @@ set(LAS_SRC
 	lasutility.cpp
 	lasfilter.cpp
 	lastransform.cpp
+	laskdtree.cpp
 	fopen_compressed.cpp
 )
 
 set(LAZ_SRC
-	laszip.cpp
 	lasreadpoint.cpp
 	lasreaditemcompressed_v1.cpp
 	lasreaditemcompressed_v2.cpp
@@ -53,6 +53,8 @@ set(LAZ_SRC
 	lasindex.cpp
 	lasquadtree.cpp
 	lasinterval.cpp
+	laszip.cpp
+	mydefs.cpp
 )
 
 foreach(file ${LAZ_SRC})
@@ -65,6 +67,7 @@ file(GLOB_RECURSE LAS_INCLUDES
 )
 
 add_library(LASlib ${LAS_SRC} ${LAZ_SRC_FULL})
+set_property(TARGET LASlib PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if (BUILD_SHARED_LIBS)
 	target_compile_definitions(LASlib PRIVATE "COMPILE_AS_DLL")
@@ -103,10 +106,10 @@ if (MSVC)
 		install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib/${OUTPUTCONFIG} DESTINATION lib/LASlib)
 	endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
 else()
-	install(TARGETS LASlib EXPORT LASlib-targets
+	install(TARGETS LASlib EXPORT laslib-targets
 		ARCHIVE DESTINATION lib/LASlib
 		LIBRARY DESTINATION lib/LASlib
 		RUNTIME DESTINATION lib/LASlib)
-	install(EXPORT LASlib-targets DESTINATION lib/cmake/LASlib)
-	install(FILES ${CMAKE_SOURCE_DIR}/LASlib/src/LASlib-config.cmake DESTINATION lib/cmake/LASlib)
+	install(EXPORT laslib-targets DESTINATION lib/cmake/LASlib)
+	install(FILES ${CMAKE_SOURCE_DIR}/LASlib/src/laslib-config.cmake DESTINATION lib/cmake/LASlib)
 endif(MSVC)

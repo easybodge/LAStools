@@ -75,7 +75,7 @@ static const int GEO_PROJECTION_NONE     = 9;
 class ReferenceEllipsoid
 {
 public:
-  ReferenceEllipsoid(int id, char* name, double equatorialRadius, double eccentricitySquared, double inverseFlattening)
+  ReferenceEllipsoid(int id, char const* name, double equatorialRadius, double eccentricitySquared, double inverseFlattening)
   {
     this->id = id;
     this->name = name;
@@ -84,7 +84,7 @@ public:
     this->inverseFlattening = inverseFlattening;
   }
   int id;
-  char* name;
+  char const* name;
   double equatorialRadius;
   double eccentricitySquared;
   double inverseFlattening;
@@ -496,7 +496,7 @@ static const short GCTP_NAD83_Puerto_Rico = 5200;
 class StatePlaneLCC
 {
 public:
-  StatePlaneLCC(short geokey, char* zone, double falseEastingMeter, double falseNorthingMeter, double latOriginDegree, double longMeridianDegree, double firstStdParallelDegree, double secondStdParallelDegree)
+  StatePlaneLCC(short geokey, char const* zone, double falseEastingMeter, double falseNorthingMeter, double latOriginDegree, double longMeridianDegree, double firstStdParallelDegree, double secondStdParallelDegree)
   {
     this->geokey = geokey;
     this->zone = zone;
@@ -508,7 +508,7 @@ public:
     this->secondStdParallelDegree = secondStdParallelDegree;
   }
   short geokey;
-  char* zone;
+  char const* zone;
   double falseEastingMeter;
   double falseNorthingMeter;
   double latOriginDegree;
@@ -672,7 +672,7 @@ static const StatePlaneLCC state_plane_lcc_nad83_list[] =
 class StatePlaneTM
 {
 public:
-  StatePlaneTM(short geokey, char* zone, double falseEastingMeter, double falseNorthingMeter, double latOriginDegree, double longMeridianDegree, double scaleFactor)
+  StatePlaneTM(short geokey, char const* zone, double falseEastingMeter, double falseNorthingMeter, double latOriginDegree, double longMeridianDegree, double scaleFactor)
   {
     this->geokey = geokey;
     this->zone = zone;
@@ -683,7 +683,7 @@ public:
     this->scaleFactor = scaleFactor;
   }
   short geokey;
-  char* zone;
+  char const* zone;
   double falseEastingMeter;
   double falseNorthingMeter;
   double latOriginDegree;
@@ -893,6 +893,9 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, cons
       case 4283: // GCS_GDA94
         gcs_code = GEO_GCS_GDA94;
         break;
+      case 7844: // GCS_GDA2020
+        gcs_code = GEO_GCS_GDA2020;
+        break;
       case 4140: // Datum_NAD83_CSRS
       case 4617: // Datum_NAD83_CSRS
         datum_code = GEO_GCS_NAD83_CSRS;
@@ -997,6 +1000,9 @@ bool GeoProjectionConverter::set_projection_from_geo_keys(int num_geo_keys, cons
         datum_code = GEO_GCS_NAD27;
         break;
       case 6283: // Datum_Geocentric_Datum_of_Australia_1994
+        datum_code = GEO_GCS_GDA94;
+        break;
+      case 9844: // Datum_Geocentric_Datum_of_Australia_2020
         datum_code = GEO_GCS_GDA94;
         break;
       case 6140: // Datum_NAD83_CSRS
@@ -2011,13 +2017,100 @@ bool GeoProjectionConverter::set_projection_from_ogc_wkt(const char* ogc_wkt, ch
 
   // this very first version only checks for the EPSG code of projection
 
+  // check if we have vertical datum (e.g. string contains a VERT_CS)
+
+  const char* vertcs = strstr(ogc_wkt, "VERT_CS[");
+
+  if (vertcs)
+  {
+    vertical_geokey = 0;
+    int len = (int)strlen(ogc_wkt);
+    // see if we can find an AUTHORITY containing the EPSG code
+    int open_bracket = 1;
+    int curr = (int)((vertcs - ogc_wkt) + 8);
+    while ((curr < len) && open_bracket)
+    {
+      if (ogc_wkt[curr] == '[')
+      {
+        open_bracket++;
+      }
+      else if (ogc_wkt[curr] == ']')
+      {
+        open_bracket--;
+      }
+      else if (open_bracket == 2)
+      {
+        if (ogc_wkt[curr] == 'A')
+        {
+          if (strncmp(&ogc_wkt[curr], "AUTHORITY", 9) == 0)
+          {
+            curr += 9;
+            const char* epsg = strstr(&ogc_wkt[curr], "\"EPSG\"");
+            if (epsg)
+            {
+              curr = (int)((epsg - ogc_wkt) + 6);
+              while ((curr < len) && ogc_wkt[curr] != ',')
+              {
+                curr++;
+              }
+              curr++;
+              while ((curr < len) && ogc_wkt[curr] != '\"')
+              {
+                curr++;
+              }
+              curr++;
+              int code = -1;
+              if (sscanf(&ogc_wkt[curr], "%d", &code) == 1)
+              {
+                vertical_geokey = code;
+                open_bracket++; // because the one from "AUTHORITY[" was not counted
+              }
+            }
+          }
+        }
+      }
+      else if (open_bracket == 1)
+      {
+        if (ogc_wkt[curr] == 'U')
+        {
+          if (strncmp(&ogc_wkt[curr], "UNIT[", 5) == 0)
+          {
+            curr += 5;
+            while ((curr < len) && ogc_wkt[curr] != ',') // skip description
+            {
+              curr++;
+            }
+            curr++;
+            double unit;
+            if (sscanf(&ogc_wkt[curr], "%lf", &unit) == 1)
+            {
+              if (unit == 1.0)
+              {
+                set_elevation_in_meter();
+              }
+              else if (fabs(unit-0.3048006096012192) < 0.000000001)
+              {
+                set_elevation_in_survey_feet();
+              }
+              else
+              {
+                set_elevation_in_feet();
+              }
+            }
+          }
+        }
+      }
+      curr++;
+    }
+  }
+
   // check if we have a projection (e.g. string contains a PROJCS)
 
-  int len = (int)strlen(ogc_wkt);
   const char* projcs = strstr(ogc_wkt, "PROJCS[");
 
   if (projcs)
   {
+    int len = (int)strlen(ogc_wkt);
     // if we can find an AUTHORITY containing the EPSG code we are done
     int open_bracket = 1;
     int curr = (int)((projcs - ogc_wkt) + 7);
@@ -2295,15 +2388,22 @@ bool GeoProjectionConverter::get_ogc_wkt_from_projection(int& len, char** ogc_wk
       // if not geographic we have a projection
       if ((projection->type != GEO_PROJECTION_LAT_LONG) && (projection->type != GEO_PROJECTION_LONG_LAT))
       {
+        int len = (int)strlen(projection->name);
         char* epsg_name = 0;
-        if (strlen(projection->name) == 0)
+        if (len == 0)
         {
           epsg_name = get_epsg_name_from_pcs_file(argv_zero, projection->geokey);
+        }
+        else
+        {
+          len += (int)strlen(gcs_name) + 16;
+          epsg_name = (char*)malloc(len);
+          sprintf(epsg_name, "%s / %s", gcs_name, projection->name);
         }
         // maybe output a compound CRS
         if ((vertical_geokey == GEO_VERTICAL_NAVD88) || (vertical_geokey == GEO_VERTICAL_NGVD29) || (vertical_geokey == GEO_VERTICAL_CGVD2013) || (vertical_geokey == GEO_VERTICAL_EVRF2007) || (vertical_geokey == GEO_VERTICAL_CGVD28) || (vertical_geokey == GEO_VERTICAL_DVR90) || (vertical_geokey == GEO_VERTICAL_NN2000) || (vertical_geokey == GEO_VERTICAL_NN54) || (vertical_geokey == GEO_VERTICAL_DHHN92) || (vertical_geokey == GEO_VERTICAL_DHHN2016) || (vertical_geokey == GEO_VERTICAL_NZVD2016) )
         {
-          n += sprintf(&string[n], "COMPD_CS[\"%s + ", (epsg_name ? epsg_name : projection->name));
+          n += sprintf(&string[n], "COMPD_CS[\"%s + ", epsg_name);
 
           if (vertical_geokey == GEO_VERTICAL_NAVD88)
           {
@@ -2416,15 +2516,8 @@ bool GeoProjectionConverter::get_ogc_wkt_from_projection(int& len, char** ogc_wk
             }
           }
         }
-        if (epsg_name)
-        {
-          n += sprintf(&string[n], "PROJCS[\"%s\",", epsg_name);
-          free(epsg_name);
-        }
-        else
-        {
-          n += sprintf(&string[n], "PROJCS[\"%s\",", projection->name);
-        }
+        n += sprintf(&string[n], "PROJCS[\"%s\",", epsg_name);
+        free(epsg_name);
       }
       // which datum
       if (gcs_code == GEO_GCS_NAD83_2011)
@@ -3734,6 +3827,17 @@ short GeoProjectionConverter::get_ProjectedCSTypeGeoKey(bool source) const
                 fprintf(stderr, "get_ProjectedCSTypeGeoKey: southern MGA zone %d for GDA94 does not exist\n", utm->utm_zone_number);
               }
             }
+            else if (gcs_code == GEO_GCS_GDA2020)
+            {
+              if ((46 <= utm->utm_zone_number) && (utm->utm_zone_number <= 59))
+              {
+                return utm->utm_zone_number + 7800;
+              }
+              else
+              {
+                fprintf(stderr, "get_ProjectedCSTypeGeoKey: southern MGA zone %d for GDA2020 does not exist\n", utm->utm_zone_number);
+              }
+            }
             else
             {
               fprintf(stderr, "get_ProjectedCSTypeGeoKey: southern UTM zone %d for NAD83 does not exist\n", utm->utm_zone_number);
@@ -4386,6 +4490,14 @@ bool GeoProjectionConverter::set_gcs(short code, char* description)
     sprintf(datum_name, "Geocentric_Datum_of_Australia_1994");
     spheroid_code = GEO_SPHEROID_GRS80;
   }
+  else if (code == GEO_GCS_GDA2020)
+  {
+    set_reference_ellipsoid(GEO_ELLIPSOID_GRS1980);
+    sprintf(gcs_name, "GDA2020");
+    datum_code = gcs_code + 2000;
+    sprintf(datum_name, "Geocentric_Datum_of_Australia_2020");
+    spheroid_code = GEO_SPHEROID_GRS80;
+  }
   else if (code == GEO_GCS_WGS72)
   {
     set_reference_ellipsoid(GEO_ELLIPSOID_WGS72);
@@ -4635,6 +4747,7 @@ void GeoProjectionConverter::set_geokey(short geokey, bool source)
     if (source_projection)
     {
       source_projection->geokey = geokey;
+      source_projection->datum = gcs_code;
     }
     else
     {
@@ -4646,6 +4759,7 @@ void GeoProjectionConverter::set_geokey(short geokey, bool source)
     if (target_projection)
     {
       target_projection->geokey = geokey;
+      target_projection->datum = gcs_code;
     }
     else
     {
@@ -4787,7 +4901,7 @@ bool GeoProjectionConverter::set_utm_projection(char* zone, char* description, b
   }
   else
   {
-    sprintf(utm->name, "%s / %s zone %d%s", gcs_name, (is_mga ? "MGA" : "UTM"), zone_number, (utm->utm_northern_hemisphere ? "N" : "S"));
+    sprintf(utm->name, "%s zone %d%s", (is_mga ? "MGA" : "UTM"), zone_number, (utm->utm_northern_hemisphere ? "N" : "S"));
   }
   utm->utm_long_origin = (zone_number - 1) * 6 - 180 + 3; // + 3 puts origin in middle of zone
   set_projection(utm, source);
@@ -4830,6 +4944,10 @@ bool GeoProjectionConverter::set_target_utm_projection(char* description, const 
   if (name)
   {
     sprintf(utm->name, "%.255s", name);
+  }
+  else
+  {
+    sprintf(utm->name, "auto select");
   }
   set_projection(utm, false);
   if (description)
@@ -5133,6 +5251,31 @@ bool GeoProjectionConverter::set_epsg_code(short value, char* description, bool 
     utm_northern = true; utm_zone = value-26900;
     gcs = GEO_GCS_NAD83;
   }
+  else if ((value >= 3154) && (value <= 3160)) // NAD83(CSRS) / UTM zone 7N - NAD83(CSRS) / UTM zone 16N
+  {
+    utm_northern = true; utm_zone = (value < 3158 ? value - 3154 + 7 : value - 3158 + 14);
+    gcs = GEO_GCS_NAD83_CSRS;
+  }
+  else if ((value >= 7846) && (value <= 7859)) // PCS_GDA2020_MGA_zone_46S - PCS_GDA2020_MGA_zone_59S
+  {
+    utm_northern = false; utm_zone = value-7800; is_mga = true;
+    gcs = GEO_GCS_GDA2020;
+  } 
+  else if ((value >= 28348) && (value <= 28358)) // PCS_GDA94_MGA_zone_48 - PCS_GDA94_MGA_zone_58
+  {
+    utm_northern = false; utm_zone = value-28300; is_mga = true;
+    gcs = GEO_GCS_GDA94;
+  }
+  else if ((value >= 29118) && (value <= 29122)) // PCS_SAD69_UTM_zone_18N - PCS_SAD69_UTM_zone_22N
+  {
+    utm_northern = true; utm_zone = value-29100;
+    gcs = GEO_GCS_SAD69;
+  }
+  else if ((value >= 29177) && (value <= 29185)) // PCS_SAD69_UTM_zone_17S - PCS_SAD69_UTM_zone_25S
+  {
+    utm_northern = false; utm_zone = value-29160;
+    gcs = GEO_GCS_SAD69;
+  }
   else if ((value >= 32201) && (value <= 32260)) // PCS_WGS72_UTM_zone_1N - PCS_WGS72_UTM_zone_60N
   {
     utm_northern = true; utm_zone = value-32200;
@@ -5142,11 +5285,6 @@ bool GeoProjectionConverter::set_epsg_code(short value, char* description, bool 
   {
     utm_northern = false; utm_zone = value-32300;
     gcs = GEO_GCS_WGS72;
-  }
-  else if ((value >= 26703) && (value <= 26723)) // PCS_NAD27_UTM_zone_3N - PCS_NAD27_UTM_zone_23N
-  {
-    utm_northern = true; utm_zone = value-26700;
-    gcs = GEO_GCS_NAD27;
   }
   else if ((value >= 32401) && (value <= 32460)) // PCS_WGS72BE_UTM_zone_1N - PCS_WGS72BE_UTM_zone_60N
   {
@@ -5158,25 +5296,10 @@ bool GeoProjectionConverter::set_epsg_code(short value, char* description, bool 
     utm_northern = false; utm_zone = value-32500;
     gcs = GEO_GCS_WGS72BE;
   }
-  else if ((value >= 28348) && (value <= 28358)) // PCS_GDA94_MGA_zone_48 - PCS_GDA94_MGA_zone_58
+  else if ((value >= 26703) && (value <= 26723)) // PCS_NAD27_UTM_zone_3N - PCS_NAD27_UTM_zone_23N
   {
-    utm_northern = false; utm_zone = value-28300; is_mga = true;
-    gcs = GEO_GCS_GDA94;
-  }
-  else if ((value >= 3154) && (value <= 3160)) // NAD83(CSRS) / UTM zone 7N - NAD83(CSRS) / UTM zone 16N
-  {
-    utm_northern = true; utm_zone = (value < 3158 ? value - 3154 + 7 : value - 3158 + 14);
-    gcs = GEO_GCS_NAD83_CSRS;
-  }
-  else if ((value >= 29118) && (value <= 29122)) // PCS_SAD69_UTM_zone_18N - PCS_SAD69_UTM_zone_22N
-  {
-    utm_northern = true; utm_zone = value-29100;
-    gcs = GEO_GCS_SAD69;
-  }
-  else if ((value >= 29177) && (value <= 29185)) // PCS_SAD69_UTM_zone_17S - PCS_SAD69_UTM_zone_25S
-  {
-    utm_northern = false; utm_zone = value-29160;
-    gcs = GEO_GCS_SAD69;
+    utm_northern = true; utm_zone = value-26700;
+    gcs = GEO_GCS_NAD27;
   }
   else switch (value)
   {
@@ -5937,6 +6060,9 @@ bool GeoProjectionConverter::compute_utm_zone(const double LatDegree, const doub
   else if((-64 > LatDegree) && (LatDegree >= -72)) utm->utm_zone_letter = 'D';
   else if((-72 > LatDegree) && (LatDegree >= -80)) utm->utm_zone_letter = 'C';
   else return false; // latitude is outside UTM limits
+  
+  sprintf(utm->name, "UTM %d%s", utm->utm_zone_number, (utm->utm_northern_hemisphere ? "N" : "S"));
+
   return true;
 }
 
@@ -7275,6 +7401,12 @@ bool GeoProjectionConverter::parse(int argc, char* argv[])
       if (verbose) fprintf(stderr, "using datum '%s' with ellipsoid '%s'\n", tmp, get_ellipsoid_name());
       *argv[i]='\0';
     }
+    else if (strcmp(argv[i],"-gda2020") == 0)
+    {
+      set_gcs(GEO_GCS_GDA2020, tmp);
+      if (verbose) fprintf(stderr, "using datum '%s' with ellipsoid '%s'\n", tmp, get_ellipsoid_name());
+      *argv[i]='\0';
+    }
     else if (strcmp(argv[i],"-etrs89") == 0)
     {
       set_gcs(GEO_GCS_ETRS89, tmp);
@@ -7790,6 +7922,10 @@ int GeoProjectionConverter::unparse(char* string) const
         {
           n += sprintf(&string[n], "-gda94 ");
         }
+        else if (gcs_code == GEO_GCS_GDA2020)
+        {
+          n += sprintf(&string[n], "-gda2020 ");
+        }
         else if (gcs_code == GEO_GCS_WGS72)
         {
           n += sprintf(&string[n], "-wgs72 ");
@@ -8178,6 +8314,35 @@ bool GeoProjectionConverter::to_lon_lat_ele(const double* point, double& longitu
 
     elevation_in_meter = elevation2meter*point[2] + elevation_offset_in_meter;
     return true;
+  }
+  return false;
+}
+
+bool GeoProjectionConverter::check_horizontal_datum_before_reprojection()
+{
+  if (source_projection && target_projection)
+  {
+    if (source_projection->datum == target_projection->datum)
+    {
+      return true;
+    }
+    else if (source_projection->datum == 0)
+    {
+      fprintf(stderr, "WARNING: horizontal datum of source unspecified. assuming same as target.\n");
+      source_projection->datum = target_projection->datum;
+      return true;
+    }
+    else if (target_projection->datum == 0)
+    {
+//      fprintf(stderr, "WARNING: horizontal datum of target unspecified. assuming same as source.\n");
+      target_projection->datum = source_projection->datum;
+      return true;
+    }
+    else
+    {
+      fprintf(stderr, "SERIOUS WARNING: horizontal datum of source and target incompatible.\n");
+      return false;
+    }
   }
   return false;
 }

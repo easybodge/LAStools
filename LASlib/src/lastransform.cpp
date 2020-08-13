@@ -13,7 +13,7 @@
 
   COPYRIGHT:
 
-    (c) 2007-2018, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2007-2019, martin isenburg, rapidlasso - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -432,6 +432,42 @@ private:
   F64 above;
 };
 
+class LASoperationCopyAttributeIntoX : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_attribute_into_x"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_EXTRA_BYTES; };
+  inline void transform(LASpoint* point) {
+    F64 x = point->get_attribute_as_float(index);
+    if (!point->set_x(x))
+    {
+      overflow++;
+    }
+  };
+  LASoperationCopyAttributeIntoX(U32 index) { this->index = index; };
+private:
+  U32 index;
+};
+
+class LASoperationCopyAttributeIntoY : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_attribute_into_y"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_EXTRA_BYTES; };
+  inline void transform(LASpoint* point) {
+    F64 y = point->get_attribute_as_float(index);
+    if (!point->set_y(y))
+    {
+      overflow++;
+    }
+  };
+  LASoperationCopyAttributeIntoY(U32 index) { this->index = index; };
+private:
+  U32 index;
+};
+
 class LASoperationCopyAttributeIntoZ : public LASoperation
 {
 public:
@@ -730,6 +766,217 @@ public:
   LASoperationCopyAttributeIntoIntensity(U32 index) { this->index = index; };
 private:
   U32 index;
+};
+
+class LASoperationCopyAttributeIntoRGBI : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_attribute_into_"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s%c %u ", name(), (rgbi == 0 ? 'R' : (rgbi == 1 ? 'G' : (rgbi == 2 ? 'B' : 'I'))), index); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_EXTRA_BYTES; };
+  inline void transform(LASpoint* point) {
+    F64 attribute = point->get_attribute_as_float(index);
+    point->set_RGBI(rgbi, U16_CLAMP(attribute));
+  };
+  LASoperationCopyAttributeIntoRGBI(U32 index, U32 rgbi) { this->index = index; this->rgbi = rgbi; };
+private:
+  U32 index;
+  U32 rgbi;
+};
+
+class LASoperationCopyIntensityIntoRegister : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_intensity_into_register"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_INTENSITY; };
+  inline void transform(LASpoint* point) {
+    registers[index] = point->get_intensity();
+  };
+  LASoperationCopyIntensityIntoRegister(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyUserDataIntoRegister : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_user_data_into_register"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_INTENSITY; };
+  inline void transform(LASpoint* point) {
+    registers[index] = point->get_user_data();
+  };
+  LASoperationCopyUserDataIntoRegister(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyAttributeIntoRegister : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_attribute_into_register"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u %u ", name(), index_attribute, index_register); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_EXTRA_BYTES; };
+  inline void transform(LASpoint* point) {
+    F64 attribute = point->get_attribute_as_float(index_attribute);
+    registers[index_register] = attribute;
+  };
+  LASoperationCopyAttributeIntoRegister(U32 index_attribute, F64* registers, U32 index_register) { this->index_attribute = index_attribute; this->registers = registers; this->index_register = index_register; };
+private:
+  U32 index_attribute;
+  F64* registers;
+  U32 index_register;
+};
+
+class LASoperationSetRegister : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "set_register"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u %g ", name(), index, value); };
+  inline void transform(LASpoint* point) { registers[index] = value; };
+  LASoperationSetRegister(F64* registers, U32 index, F64 value) { this->registers = registers; this->index = index; this->value = value; };
+private:
+  F64* registers;
+  U32 index;
+  F64 value;
+};
+
+class LASoperationScaleRegister : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "scale_register"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u %g ", name(), index, scale); };
+  inline void transform(LASpoint* point) { registers[index] *= scale; };
+  LASoperationScaleRegister(F64* registers, U32 index, F32 scale) { this->registers = registers; this->index = index; this->scale = scale; };
+private:
+  F64* registers;
+  U32 index;
+  F32 scale;
+};
+
+class LASoperationTranslateRegister : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "translate_register"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u %lf ", name(), index, offset); };
+  inline void transform(LASpoint* point) { registers[index] += offset; };
+  LASoperationTranslateRegister(F64* registers, U32 index, F64 offset) { this->registers = registers; this->index = index; this->offset = offset; };
+private:
+  F64* registers;
+  U32 index;
+  F64 offset;
+};
+
+class LASoperationCopyRegisterIntoX : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_register_into_x"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline void transform(LASpoint* point) {
+    if (!point->set_x(registers[index]))
+    {
+      overflow++;
+    }
+  };
+  LASoperationCopyRegisterIntoX(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyRegisterIntoY : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_register_into_y"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline void transform(LASpoint* point) {
+    if (!point->set_y(registers[index]))
+    {
+      overflow++;
+    }
+  };
+  LASoperationCopyRegisterIntoY(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyRegisterIntoZ : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_register_into_z"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline void transform(LASpoint* point) {
+    if (!point->set_z(registers[index]))
+    {
+      overflow++;
+    }
+  };
+  LASoperationCopyRegisterIntoZ(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyRegisterIntoUserData : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_attribute_into_user_data"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline void transform(LASpoint* point) {
+    point->set_user_data(U8_CLAMP(registers[index]));
+  };
+  LASoperationCopyRegisterIntoUserData(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyRegisterIntoIntensity : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_register_into_intensity"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline void transform(LASpoint* point) {
+    point->set_intensity(U16_CLAMP(registers[index]));
+  };
+  LASoperationCopyRegisterIntoIntensity(F64* registers, U32 index) { this->registers = registers; this->index = index; };
+private:
+  F64* registers;
+  U32 index;
+};
+
+class LASoperationCopyRegisterIntoRGBI : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_register_into_"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s%c %u ", name(), (rgbi == 0 ? 'R' : (rgbi == 1 ? 'G' : (rgbi == 2 ? 'B' : 'I'))), index); };
+  inline void transform(LASpoint* point) {
+    point->set_RGBI(rgbi, U16_CLAMP(registers[index]));
+  };
+  LASoperationCopyRegisterIntoRGBI(F64* registers, U32 index, U32 rgbi) { this->registers = registers; this->index = index; this->rgbi = rgbi; };
+private:
+  F64* registers;
+  U32 index;
+  U32 rgbi;
+};
+
+class LASoperationCopyRegisterIntoAttribute : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_register_into_attribute"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u %u ", name(), index_register, index_attribute); };
+  inline void transform(LASpoint* point) {
+    point->set_attribute_as_float(index_attribute, registers[index_register]);
+  };
+  LASoperationCopyRegisterIntoAttribute(F64* registers, U32 index_register, U32 index_attribute) { this->registers = registers; this->index_register = index_register; this->index_attribute = index_attribute; };
+private:
+  F64* registers;
+  U32 index_register;
+  U32 index_attribute;
 };
 
 class LASoperationBinGpsTimeIntoIntensity : public LASoperation
@@ -1201,6 +1448,15 @@ public:
   inline void transform(LASpoint* point) { point->set_user_data(point->get_classification() ? point->get_classification() : point->get_extended_classification()); };
 };
 
+class LASoperationCopyUserDataIntoClassification : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_user_data_into_classification"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s ", name()); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_USER_DATA; };
+  inline void transform(LASpoint* point) { if (point->is_extended_point_type()) point->set_extended_classification(point->get_user_data()); else point->set_classification(point->get_user_data()); };
+};
+
 class LASoperationCopyClassificationIntoPointSource : public LASoperation
 {
 public:
@@ -1236,6 +1492,21 @@ public:
     point->set_attribute_as_float(index, user_data);
   };
   LASoperationCopyUserDataIntoAttribute(U32 index) { this->index = index; };
+private:
+  U32 index;
+};
+
+class LASoperationCopyIntensityIntoAttribute : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "copy_user_data_into_attribute"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u ", name(), index); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_INTENSITY; };
+  inline void transform(LASpoint* point) {
+    F64 user_data = point->get_intensity();
+    point->set_attribute_as_float(index, user_data);
+  };
+  LASoperationCopyIntensityIntoAttribute(U32 index) { this->index = index; };
 private:
   U32 index;
 };
@@ -1535,6 +1806,24 @@ public:
   inline void transform(LASpoint* point) { point->rgb[0] = point->rgb[0]*256; point->rgb[1] = point->rgb[1]*256; point->rgb[2] = point->rgb[2]*256; };
 };
 
+class LASoperationScaleRGBto8bit : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "scale_RGB_to_8bit"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s ", name()); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_RGB; };
+  inline void transform(LASpoint* point) { if ((point->get_R() > 255) || (point->get_G() > 255) || (point->get_B() > 255)) { point->rgb[0] = point->rgb[0]/256; point->rgb[1] = point->rgb[1]/256; point->rgb[2] = point->rgb[2]/256; } };
+};
+
+class LASoperationScaleRGBto16bit : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "scale_RGB_to_16bit"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s ", name()); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_RGB; };
+  inline void transform(LASpoint* point) { if ((point->get_R() < 256) && (point->get_G() < 256) && (point->get_B() < 256)) { point->rgb[0] = point->rgb[0]*256; point->rgb[1] = point->rgb[1]*256; point->rgb[2] = point->rgb[2]*256; } };
+};
+
 class LASoperationSwitchXY : public LASoperation
 {
 public:
@@ -1689,6 +1978,43 @@ private:
   U8* Gs;
   U8* Bs;
   CHAR* map_file_name;
+};
+
+class LASoperationLoadAttributeFromText : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "load_attribute_from_text"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u \"%s\" ", name(), index, file_name); };
+  inline void transform(LASpoint* point)
+  {
+    if (file)
+    {
+      CHAR line[256];
+      while (fgets(line, 256, file))
+      {
+        F64 value;
+        if (sscanf(line, "%lf", &value) == 1)
+        {
+          point->set_attribute_as_float(index, value);
+          return;
+        }
+      }
+      fclose(file);
+      file = 0;
+    }
+  };
+  void reset() { if (file) fclose(file); file = fopen(file_name, "r"); };
+  LASoperationLoadAttributeFromText(const U32 index, const CHAR* file_name)
+  {
+    this->index = index;
+    this->file_name = LASCopyString(file_name);
+    file = fopen(this->file_name, "r");
+  };
+  ~LASoperationLoadAttributeFromText() { if (file) fclose(file); if (file_name) free(file_name); };
+private:
+  U32 index;
+  CHAR* file_name;
+  FILE* file;
 };
 
 class LASoperationCopyRGBintoIntensity : public LASoperation
@@ -1904,6 +2230,22 @@ private:
   U32 index;
 };
 
+class LASoperationMultiplyScaledIntensityIntoRGB : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "multiply_scaled_intensity_into_RGB"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s_%s %f ", name(), (channel == 0 ? "red" : (channel == 1 ? "green" : (channel == 2 ? "blue" : "nir"))), scale); };
+  inline U32 get_decompress_selective() const { return LASZIP_DECOMPRESS_SELECTIVE_INTENSITY | LASZIP_DECOMPRESS_SELECTIVE_RGB; };
+  inline void transform(LASpoint* point) {
+    F32 rgb = scale * point->get_intensity() * point->rgb[channel];
+    point->rgb[channel] = U16_CLAMP(rgb);
+  };
+  LASoperationMultiplyScaledIntensityIntoRGB(U32 channel, F32 scale) { this->channel = channel; this->scale = scale; };
+private:
+  U32 channel;
+  F32 scale;
+};
+
 class LASoperationAddScaledAttributeToZ : public LASoperation
 {
 public:
@@ -1934,6 +2276,18 @@ public:
 private:
   U32 index;
   F32 scale;
+};
+
+class LASoperationSetAttribute : public LASoperation
+{
+public:
+  inline const CHAR* name() const { return "set_attribute"; };
+  inline I32 get_command(CHAR* string) const { return sprintf(string, "-%s %u %g ", name(), index, value); };
+  inline void transform(LASpoint* point) { point->set_attribute_as_float(index, value); };
+  LASoperationSetAttribute(U32 index, F64 value) { this->index = index; this->value = value; };
+private:
+  U32 index;
+  F64 value;
 };
 
 class LASoperationScaleAttribute : public LASoperation
@@ -2046,6 +2400,9 @@ void LAStransform::usage() const
   fprintf(stderr,"  -scale_scan_angle 1.944445\n");
   fprintf(stderr,"  -translate_scan_angle -5\n");
   fprintf(stderr,"  -translate_then_scale_scan_angle -0.5 2.1\n");
+  fprintf(stderr,"Transform register.\n");
+  fprintf(stderr,"  -copy_attribute_into_register 0 0\n");
+  fprintf(stderr,"  -scale_register 0 1.5\n");
   fprintf(stderr,"Change the return number or return count of points.\n");
   fprintf(stderr,"  -repair_zero_returns\n");
   fprintf(stderr,"  -set_return_number 1\n");
@@ -2071,6 +2428,7 @@ void LAStransform::usage() const
   fprintf(stderr,"  -classify_attribute_between_as 1 2.0 5.0 4\n");
   fprintf(stderr,"  -change_extended_classification_from_to 6 46\n");
   fprintf(stderr,"  -move_ancient_to_extended_classification\n");
+  fprintf(stderr,"  -copy_user_data_into_classification\n");
   fprintf(stderr,"Change the flags.\n");
   fprintf(stderr,"  -set_withheld_flag 0\n");
   fprintf(stderr,"  -set_synthetic_flag 1\n");
@@ -2110,6 +2468,8 @@ void LAStransform::usage() const
   fprintf(stderr,"  -scale_RGB 2 4 2\n");
   fprintf(stderr,"  -scale_RGB_down (by 256)\n");
   fprintf(stderr,"  -scale_RGB_up (by 256)\n");
+  fprintf(stderr,"  -scale_RGB_to_8bit (only scales down 16 bit values)\n");
+  fprintf(stderr,"  -scale_RGB_to_16bit (only scales up 8 bit values)\n");
   fprintf(stderr,"  -switch_R_G -switch_R_B -switch_B_G\n");
   fprintf(stderr,"  -copy_R_into_NIR -copy_R_into_intensity\n");
   fprintf(stderr,"  -copy_G_into_NIR -copy_G_into_intensity\n");
@@ -2515,6 +2875,28 @@ BOOL LAStransform::parse(int argc, char* argv[])
         add_operation(new LASoperationTranslateAttribute(index, offset));
         *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2; 
       }
+      else if (strcmp(argv[i],"-translate_register") == 0)
+      {
+        if ((i+2) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index offset\n", argv[i]);
+          return FALSE;
+        }
+        U32 index;
+        if (sscanf(argv[i+1], "%u", &index) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index offset but '%s' is no valid index\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        F64 offset;
+        if (sscanf(argv[i+2], "%lf", &offset) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index offset but '%s' is no valid offset\n", argv[i], argv[i+2]);
+          return FALSE;
+        }
+        add_operation(new LASoperationTranslateRegister(registers, index, offset));
+        *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2; 
+      }
     }
     else if (strncmp(argv[i],"-rotate_", 8) == 0)
     {
@@ -2785,7 +3167,41 @@ BOOL LAStransform::parse(int argc, char* argv[])
     {
       if (strncmp(argv[i],"-copy_attribute_", 16) == 0)
       {
-        if (strcmp(argv[i],"-copy_attribute_into_z") == 0)
+        if (strcmp(argv[i],"-copy_attribute_into_x") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          transformed_fields |= LASTRANSFORM_X_COORDINATE;
+          add_operation(new LASoperationCopyAttributeIntoX(index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_attribute_into_y") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          transformed_fields |= LASTRANSFORM_Y_COORDINATE;
+          add_operation(new LASoperationCopyAttributeIntoY(index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_attribute_into_z") == 0)
         {
           if ((i+1) >= argc)
           {
@@ -2834,6 +3250,319 @@ BOOL LAStransform::parse(int argc, char* argv[])
           add_operation(new LASoperationCopyAttributeIntoIntensity(index));
           *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
         }
+        else if (strcmp(argv[i],"-copy_attribute_into_R") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyAttributeIntoRGBI(index, 0));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_attribute_into_G") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyAttributeIntoRGBI(index, 1));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_attribute_into_B") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyAttributeIntoRGBI(index, 2));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_attribute_into_I") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of attribute but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyAttributeIntoRGBI(index, 3));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_attribute_into_register") == 0)
+        {
+          if ((i+2) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 2 arguments: index of attribute, index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index_attribute;
+          if (sscanf(argv[i+1], "%u", &index_attribute) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' 1st of 2 arguments index of attribute '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          U32 index_register;
+          if (sscanf(argv[i+2], "%u", &index_register) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' 2nd of 2 arguments index of register '%s' is no valid index\n", argv[i], argv[i+2]);
+            return FALSE;
+          }
+          if (index_register >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' 2nd of 2 arguments index of register %u is out of valid [0,15] range\n", argv[i], index_register);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyAttributeIntoRegister(index_attribute, registers, index_register));
+          *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2;
+        }
+      }
+      else if (strncmp(argv[i],"-copy_register_", 15) == 0)
+      {
+        if (strcmp(argv[i],"-copy_register_into_x") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          transformed_fields |= LASTRANSFORM_X_COORDINATE;
+          add_operation(new LASoperationCopyRegisterIntoX(registers, index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_y") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          transformed_fields |= LASTRANSFORM_Y_COORDINATE;
+          add_operation(new LASoperationCopyRegisterIntoY(registers, index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_z") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          transformed_fields |= LASTRANSFORM_Z_COORDINATE;
+          add_operation(new LASoperationCopyRegisterIntoZ(registers, index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_user_data") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoUserData(registers, index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_intensity") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoIntensity(registers, index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_R") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoRGBI(registers, index, 0));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_G") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoRGBI(registers, index, 1));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_B") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoRGBI(registers, index, 2));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_I") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index of register but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoRGBI(registers, index, 3));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_register_into_attribute") == 0)
+        {
+          if ((i+2) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 2 arguments: index of register, index of attribute\n", argv[i]);
+            return FALSE;
+          }
+          U32 index_register;
+          if (sscanf(argv[i+1], "%u", &index_register) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' 1st of 2 arguments index of register '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index_register >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' 1st of 2 arguments index of register %u is out of valid [0,15] range\n", argv[i], index_register);
+            return FALSE;
+          }
+          U32 index_attribute;
+          if (sscanf(argv[i+2], "%u", &index_attribute) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' 2nd of 2 arguments index of attribute '%s' is no valid index\n", argv[i], argv[i+2]);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyRegisterIntoAttribute(registers, index_register, index_attribute));
+          *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2;
+        }
       }
       else if (strncmp(argv[i],"-copy_user_data_", 16) == 0)
       {
@@ -2845,6 +3574,11 @@ BOOL LAStransform::parse(int argc, char* argv[])
         else if (strcmp(argv[i],"-copy_user_data_into_scanner_channel") == 0)
         {
           add_operation(new LASoperationCopyUserDataIntoScannerChannel());
+          *argv[i]='\0'; 
+        }
+        else if (strcmp(argv[i],"-copy_user_data_into_classification") == 0)
+        {
+          add_operation(new LASoperationCopyUserDataIntoClassification());
           *argv[i]='\0'; 
         }
         else if (strcmp(argv[i],"-copy_user_data_into_z") == 0)
@@ -2866,6 +3600,27 @@ BOOL LAStransform::parse(int argc, char* argv[])
             return FALSE;
           }
           add_operation(new LASoperationCopyUserDataIntoAttribute(index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_user_data_into_register") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyUserDataIntoRegister(registers, index));
           *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
         }
       }
@@ -2948,6 +3703,43 @@ BOOL LAStransform::parse(int argc, char* argv[])
         {
           add_operation(new LASoperationCopyIntensityIntoClassification());
           *argv[i]='\0'; 
+        }
+        else if (strcmp(argv[i],"-copy_intensity_into_attribute") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyIntensityIntoAttribute(index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+        }
+        else if (strcmp(argv[i],"-copy_intensity_into_register") == 0)
+        {
+          if ((i+1) >= argc)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index\n", argv[i]);
+            return FALSE;
+          }
+          U32 index;
+          if (sscanf(argv[i+1], "%u", &index) != 1)
+          {
+            fprintf(stderr,"ERROR: '%s' needs 1 argument: index but '%s' is no valid index\n", argv[i], argv[i+1]);
+            return FALSE;
+          }
+          if (index >= 16)
+          {
+            fprintf(stderr,"ERROR: '%s' index of register %u is out of valid [0,15] range\n", argv[i], index);
+            return FALSE;
+          }
+          add_operation(new LASoperationCopyIntensityIntoRegister(registers, index));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
         }
       }
       else if (strncmp(argv[i],"-copy_classification_", 21) == 0)
@@ -3281,6 +4073,50 @@ BOOL LAStransform::parse(int argc, char* argv[])
         }
         add_operation(new LASoperationSetGpsTime(gps_time));
         *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
+      }
+      else if ((strcmp(argv[i],"-set_attribute") == 0))
+      {
+        if ((i+2) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index value\n", argv[i]);
+          return FALSE;
+        }
+        U32 index;
+        if (sscanf(argv[i+1], "%u", &index) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index value but '%s' is no valid index\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        F64 value;
+        if (sscanf(argv[i+2], "%lf", &value) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index value but '%s' is no valid value\n", argv[i], argv[i+2]);
+          return FALSE;
+        }
+        add_operation(new LASoperationSetAttribute(index, value));
+        *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2;
+      }
+      else if ((strcmp(argv[i],"-set_register") == 0))
+      {
+        if ((i+2) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index value\n", argv[i]);
+          return FALSE;
+        }
+        U32 index;
+        if (sscanf(argv[i+1], "%u", &index) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index value but '%s' is no valid index\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        F64 value;
+        if (sscanf(argv[i+2], "%lf", &value) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index value but '%s' is no valid value\n", argv[i], argv[i+2]);
+          return FALSE;
+        }
+        add_operation(new LASoperationSetRegister(registers, index, value));
+        *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2;
       }
       else if (strncmp(argv[i],"-set_RGB", 8) == 0)
       {
@@ -4130,15 +4966,28 @@ BOOL LAStransform::parse(int argc, char* argv[])
         add_operation(new LASoperationScaleUserData(scale));
         *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
       }
-      else if (strcmp(argv[i],"-scale_RGB_down") == 0 || strcmp(argv[i],"-scale_rgb_down") == 0)
+      else if (strncmp(argv[i],"-scale_RGB_", 11) == 0)
       {
-        add_operation(new LASoperationScaleRGBdown());
-        *argv[i]='\0'; 
-      }
-      else if (strcmp(argv[i],"-scale_RGB_up") == 0 || strcmp(argv[i],"-scale_rgb_up") == 0)
-      {
-        add_operation(new LASoperationScaleRGBup());
-        *argv[i]='\0'; 
+        if ((strcmp(argv[i],"-scale_RGB_down") == 0) || (strcmp(argv[i],"-scale_rgb_down") == 0))
+        {
+          add_operation(new LASoperationScaleRGBdown());
+          *argv[i]='\0';
+        }
+        else if ((strcmp(argv[i],"-scale_RGB_up") == 0) || (strcmp(argv[i],"-scale_rgb_up") == 0))
+        {
+          add_operation(new LASoperationScaleRGBup());
+          *argv[i]='\0';
+        }
+        else if ((strcmp(argv[i],"-scale_RGB_to_8bit") == 0) || (strcmp(argv[i],"-scale_rgb_to_8bit") == 0))
+        {
+          add_operation(new LASoperationScaleRGBto8bit());
+          *argv[i]='\0';
+        }
+        else if ((strcmp(argv[i],"-scale_RGB_to_16bit") == 0) || (strcmp(argv[i],"-scale_rgb_to_16bit") == 0))
+        {
+          add_operation(new LASoperationScaleRGBto16bit());
+          *argv[i]='\0';
+        }
       }
       else if (strcmp(argv[i],"-scale_attribute") == 0)
       {
@@ -4162,6 +5011,28 @@ BOOL LAStransform::parse(int argc, char* argv[])
         add_operation(new LASoperationScaleAttribute(index, scale));
         *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2; 
       }
+      else if (strcmp(argv[i],"-scale_register") == 0)
+      {
+        if ((i+2) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index scale\n", argv[i]);
+          return FALSE;
+        }
+        U32 index;
+        if (sscanf(argv[i+1], "%u", &index) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index scale but '%s' is no valid index\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        F32 scale;
+        if (sscanf(argv[i+2], "%f", &scale) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: index scale but '%s' is no valid scale\n", argv[i], argv[i+2]);
+          return FALSE;
+        }
+        add_operation(new LASoperationScaleRegister(registers, index, scale));
+        *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2; 
+     }
     }
     else if (strncmp(argv[i],"-switch_", 8) == 0)
     {
@@ -4325,7 +5196,7 @@ BOOL LAStransform::parse(int argc, char* argv[])
         FILE* file = fopen(argv[i+1], "r");
         if (file == 0)
         {
-          fprintf(stderr,"ERROR: cannot '%s' needs text file with map but '%s' cannot be opened\n", argv[i], argv[i+1]);
+          fprintf(stderr,"ERROR: '%s' needs text file with map but '%s' cannot be opened\n", argv[i], argv[i+1]);
           return FALSE;
         }
         else
@@ -4345,7 +5216,7 @@ BOOL LAStransform::parse(int argc, char* argv[])
         FILE* file = fopen(argv[i+1], "r");
         if (file == 0)
         {
-          fprintf(stderr,"ERROR: cannot '%s' needs text file with map but '%s' cannot be opened\n", argv[i], argv[i+1]);
+          fprintf(stderr,"ERROR: '%s' needs text file with map but '%s' cannot be opened\n", argv[i], argv[i+1]);
           return FALSE;
         }
         else
@@ -4371,7 +5242,7 @@ BOOL LAStransform::parse(int argc, char* argv[])
         FILE* file = fopen(argv[i+2], "r");
         if (file == 0)
         {
-          fprintf(stderr,"ERROR: cannot '%s' needs text file with map but '%s' cannot be opened\n", argv[i], argv[i+2]);
+          fprintf(stderr,"ERROR: '%s' needs text file with map but '%s' cannot be opened\n", argv[i], argv[i+2]);
           return FALSE;
         }
         else
@@ -4379,6 +5250,35 @@ BOOL LAStransform::parse(int argc, char* argv[])
           fclose(file);
         }
         add_operation(new LASoperationMapAttributeIntoRGB(index, argv[i+2]));
+        *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2; 
+      }
+    }
+    else if (strncmp(argv[i],"-load_", 6) == 0)
+    {
+      if (strcmp(argv[i],"-load_attribute_from_text") == 0)
+      {
+        if ((i+2) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: attribute_index attribute_file_name.txt\n", argv[i]);
+          return FALSE;
+        }
+        U32 index;
+        if (sscanf(argv[i+1], "%u", &index) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 2 arguments: attribute_index attribute_file_name.txt but '%s' is no valid attribute_index\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        FILE* file = fopen(argv[i+2], "r");
+        if (file == 0)
+        {
+          fprintf(stderr,"ERROR: '%s' needs text file with attribute values but '%s' cannot be opened\n", argv[i], argv[i+2]);
+          return FALSE;
+        }
+        else
+        {
+          fclose(file);
+        }
+        add_operation(new LASoperationLoadAttributeFromText(index, argv[i+2]));
         *argv[i]='\0'; *argv[i+1]='\0'; *argv[i+2]='\0'; i+=2; 
       }
     }
@@ -4553,6 +5453,96 @@ BOOL LAStransform::parse(int argc, char* argv[])
         *argv[i]='\0'; *argv[i+1]='\0'; i+=1; 
       }
     }
+    else if (strncmp(argv[i],"-multiply_", 10) == 0)
+    {
+      if (strncmp(argv[i]+10, "scaled_intensity_into_RGB", 25) == 0)
+      {
+        if ((i+1) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: scale\n", argv[i]);
+          return FALSE;
+        }
+        F32 scale;
+        if (sscanf(argv[i+1], "%f", &scale) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: scale but '%s' is no valid scale\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        if (scale == 0.0f)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: scale but '%g' is no valid scale\n", argv[i], scale);
+          return FALSE;
+        }
+        if (strcmp(argv[i]+36,"red") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_RGB;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(0, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+        else if (strcmp(argv[i]+36,"green") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_RGB;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(1, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+        else if (strcmp(argv[i]+36,"blue") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_RGB;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(2, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+        else if (strcmp(argv[i]+36,"nir") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_NIR;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(3, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+      }
+      else if (strncmp(argv[i]+10, "divided_intensity_into_RGB", 25) == 0)
+      {
+        if ((i+1) >= argc)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: divisor \n", argv[i]);
+          return FALSE;
+        }
+        F32 divisor;
+        if (sscanf(argv[i+1], "%f", &divisor) != 1)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: scale but '%s' is no valid divisor\n", argv[i], argv[i+1]);
+          return FALSE;
+        }
+        if (divisor == 0.0f)
+        {
+          fprintf(stderr,"ERROR: '%s' needs 1 argument: scale but '%g' is no valid divisor\n", argv[i], divisor);
+          return FALSE;
+        }
+        F32 scale = 1.0f / divisor; 
+        if (strcmp(argv[i]+37,"red") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_RGB;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(0, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+        else if (strcmp(argv[i]+37,"green") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_RGB;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(1, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+        else if (strcmp(argv[i]+37,"blue") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_RGB;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(2, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+        else if (strcmp(argv[i]+37,"nir") == 0)
+        {
+          transformed_fields |= LASTRANSFORM_NIR;
+          add_operation(new LASoperationMultiplyScaledIntensityIntoRGB(3, scale));
+          *argv[i]='\0'; *argv[i+1]='\0'; i+=1;
+        }
+      }
+    }
   }
   return TRUE;
 }
@@ -4627,11 +5617,13 @@ void LAStransform::reset()
   {
     operations[i]->reset();
   }
+  memset(registers, 0, sizeof(F64)*16);
 }
 
 LAStransform::LAStransform()
 {
   transformed_fields = 0;
+  memset(registers, 0, sizeof(F64)*16);
   alloc_operations = 0;
   num_operations = 0;
   operations = 0;
@@ -4665,6 +5657,27 @@ void LAStransform::add_operation(LASoperation* transform_operation)
   num_operations++;
 }
 
+void LAStransform::delete_operation(const CHAR* name)
+{
+  if (operations)
+  {
+    U32 i;
+    for (i = 0; i < num_operations; i++)
+    {
+      if (strcmp(operations[i]->name(), name) == 0)
+      {
+        delete operations[i];
+        for (i = i+1; i < num_operations; i++)
+        {
+          operations[i-1] = operations[i];
+        }
+        num_operations--;
+        return;
+      }
+    }
+  }
+}
+
 void LAStransform::setFilter(LASfilter* filter)
 {
   if (this->filter) delete this->filter;
@@ -4674,18 +5687,11 @@ void LAStransform::setFilter(LASfilter* filter)
 
 void LAStransform::setPointSource(U16 value)
 {
-  if (operations)
-  {
-    U32 i;
-    for (i = 0; i < num_operations; i++)
-    {
-      if (strcmp(operations[i]->name(), "set_point_source") == 0)
-      {
-        delete operations[i];
-        operations[i] = new LASoperationSetPointSource(value);
-        return;
-      }
-    }
-  }
+  delete_operation("set_point_source");
   add_operation(new LASoperationSetPointSource(value));
+}
+
+void LAStransform::unsetPointSource()
+{
+  delete_operation("set_point_source");
 }

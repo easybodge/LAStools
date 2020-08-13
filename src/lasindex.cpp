@@ -32,7 +32,7 @@
   
   COPYRIGHT:
   
-    (c) 2011-17, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2011-2019, martin isenburg, rapidlasso - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -116,6 +116,7 @@ int main(int argc, char *argv[])
   U32 threshold = 1000;
   U32 minimum_points = 100000;
   I32 maximum_intervals = -20;
+  BOOL meta = FALSE;
   BOOL dont_reindex = FALSE;
   BOOL append = FALSE;
   F64 start_time = 0.0;
@@ -250,6 +251,10 @@ int main(int argc, char *argv[])
       i++;
       threshold = atoi(argv[i]);
     }
+    else if (strcmp(argv[i],"-meta") == 0)
+    {
+      meta = TRUE;
+    }
     else if (strcmp(argv[i],"-dont_reindex") == 0)
     {
       dont_reindex = TRUE;
@@ -265,6 +270,12 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (lasreadopener.is_merged())
+  {
+    fprintf(stderr,"ERROR: on-the-fly merged input files merged not supported by lasindex\n");
+    byebye(true);
+  }
+
 #ifdef COMPILE_WITH_GUI
   if (gui)
   {
@@ -278,10 +289,6 @@ int main(int argc, char *argv[])
     if (lasreadopener.get_file_name_number() < 2)
     {
       fprintf(stderr,"WARNING: only %u input files. ignoring '-cores %d' ...\n", lasreadopener.get_file_name_number(), cores);
-    }
-    else if (lasreadopener.is_merged())
-    {
-      fprintf(stderr,"WARNING: input files merged on-the-fly. ignoring '-cores %d' ...\n", cores);
     }
     else
     {
@@ -348,6 +355,36 @@ int main(int argc, char *argv[])
   U32 skipped = 0;
   U32 indexed = 0;
 
+  FILE* file_meta = 0;
+
+  if (meta)
+  {
+    CHAR* meta_file_name_base = lasreadopener.get_file_name_base(0);
+    I32 len = 0;
+    if (meta_file_name_base)
+    {
+      len = (I32)strlen(meta_file_name_base);
+    }
+    CHAR* meta_file_name = (CHAR*)malloc(len + 9);
+    if (len)
+    {
+      sprintf(meta_file_name, "%s\\lax.txt", meta_file_name_base); 
+    }
+    else
+    {
+      sprintf(meta_file_name, "lax.txt"); 
+    }
+    free(meta_file_name_base);
+
+    file_meta = fopen(meta_file_name, "w");
+
+    if (file_meta == 0)
+    {
+      fprintf(stderr,"WARNING: cannot open '%s'. skipping creation of meta index ...\n", meta_file_name);
+    }
+    free(meta_file_name);
+  }
+
   while (lasreadopener.active())
   {
     if (verbose) start_time = taketime();
@@ -359,6 +396,15 @@ int main(int argc, char *argv[])
     {
       fprintf(stderr, "ERROR: could not open lasreader\n");
       byebye(true, argc==1);
+    }
+
+    if (file_meta)
+    {
+#ifdef _WIN32
+      fprintf(file_meta, "%u,%I64d,%lf,%lf,%lf,%lf,%s\012", lasreadopener.get_file_name_current()-1, lasreader->npoints, lasreader->header.min_x, lasreader->header.min_y, lasreader->header.max_x, lasreader->header.max_y, lasreadopener.get_file_name());
+#else
+      fprintf(file_meta, "%u,%lld,%lf,%lf,%lf,%lf,%s\012", lasreadopener.get_file_name_current()-1, lasreader->npoints, lasreader->header.min_x, lasreader->header.min_y, lasreader->header.max_x, lasreader->header.max_y, lasreadopener.get_file_name());
+#endif
     }
 
     if (dont_reindex)
@@ -435,6 +481,12 @@ int main(int argc, char *argv[])
     indexed++;
 
     if (!quiet) fprintf(stderr,"done with '%s'. took %g sec.\n", lasreadopener.get_file_name(), taketime()-start_time);
+  }
+
+  if (file_meta)
+  {
+    fclose(file_meta);
+    file_meta = 0;
   }
   
   if (!quiet && lasreadopener.get_file_name_number() > 1)

@@ -41,6 +41,8 @@
   These are also "free" to use but not (yet) available in open source.
 
     * demzip  
+    * demdiff
+    * e572las
     * lasview
     * laspublish
     * lasoptimize
@@ -95,6 +97,6 @@
 
   COPYRIGHT:
   
-  (c) 2007-2019, rapidlasso GmbH, GERMANY - fast tools to catch reality
+  (c) 2007-2020, rapidlasso GmbH, GERMANY - fast tools to catch reality
 
 --------------------------------------------------------------------------
