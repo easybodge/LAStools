@@ -9,11 +9,11 @@
   
   PROGRAMMERS:
   
-    martin.isenburg@rapidlasso.com  -  http://rapidlasso.com
+    info@rapidlasso.de  -  https://rapidlasso.de
   
   COPYRIGHT:
   
-    (c) 2007-2017, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2007-2017, rapidlasso GmbH - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -30,6 +30,7 @@
 */
 #include "lasreaderstored.hpp"
 
+#include "lasmessage.hpp"
 #include "lasindex.hpp"
 #include "lasfilter.hpp"
 #include "lastransform.hpp"
@@ -44,7 +45,7 @@ BOOL LASreaderStored::open(LASreader* lasreader)
 {
   if (lasreader == 0)
   {
-    fprintf(stderr, "ERROR: no lasreader\n");
+    laserror("no lasreader");
     return FALSE;
   }
 
@@ -81,14 +82,14 @@ BOOL LASreaderStored::open(LASreader* lasreader)
   if (streamoutarray) delete streamoutarray;
   streamoutarray = 0;
 
-  if (IS_LITTLE_ENDIAN())
+  if (Endian::IS_LITTLE_ENDIAN)
     streamoutarray = new ByteStreamOutArrayLE((header.number_of_point_records ? (I64)header.number_of_point_records : header.extended_number_of_point_records)*2);
   else
     streamoutarray = new ByteStreamOutArrayBE((header.number_of_point_records ? (I64)header.number_of_point_records : header.extended_number_of_point_records)*2);
 
   if (streamoutarray == 0)
   {
-    fprintf(stderr, "ERROR: allocating streamoutarray\n");
+    laserror("allocating streamoutarray");
     return FALSE;
   }
 
@@ -101,7 +102,7 @@ BOOL LASreaderStored::open(LASreader* lasreader)
 
   if (laswriterlas == 0)
   {
-    fprintf(stderr, "ERROR: allocating laswriterlas\n");
+    laserror("allocating laswriterlas");
     return FALSE;
   }
 
@@ -109,7 +110,7 @@ BOOL LASreaderStored::open(LASreader* lasreader)
   {
     delete laswriterlas;
     laswriterlas = 0;
-    fprintf(stderr, "ERROR: opening laswriterlas to streamoutarray\n");
+    laserror("opening laswriterlas to streamoutarray");
     return FALSE;
   }
 
@@ -118,7 +119,8 @@ BOOL LASreaderStored::open(LASreader* lasreader)
   laswriter = laswriterlas;
 
   npoints = (header.number_of_point_records ? header.number_of_point_records : header.extended_number_of_point_records);
-  p_count = 0;
+  p_idx = 0;
+  p_cnt = 0;
 
   return TRUE;
 }
@@ -133,24 +135,24 @@ BOOL LASreaderStored::reopen()
   {
     if (streamoutarray == 0)
     {
-      fprintf(stderr, "ERROR: no streamoutarray\n");
+      laserror("no streamoutarray");
       return FALSE;
     }
 
     if (streamoutarray->getSize() == 0)
     {
-      fprintf(stderr, "ERROR: nothing stored in streamoutarray\n");
+      laserror("nothing stored in streamoutarray");
       return FALSE;
     }
 
-    if (IS_LITTLE_ENDIAN())
+    if (Endian::IS_LITTLE_ENDIAN)
       streaminarray = new ByteStreamInArrayLE(streamoutarray->takeData(), streamoutarray->getSize());
     else
       streaminarray = new ByteStreamInArrayBE(streamoutarray->takeData(), streamoutarray->getSize());
 
     if (streaminarray == 0)
     {
-      fprintf(stderr, "ERROR: creating streaminarray\n");
+      laserror("creating streaminarray");
       return FALSE;
     }
   }
@@ -160,11 +162,11 @@ BOOL LASreaderStored::reopen()
   if (lasreader) delete lasreader;
   lasreader = 0;
 
-  LASreaderLAS* lasreaderlas = new LASreaderLAS();
+  LASreaderLAS* lasreaderlas = new LASreaderLAS(opener);
 
   if (lasreaderlas == 0)
   {
-    fprintf(stderr, "ERROR: allocating lasreaderlas\n");
+    laserror("allocating lasreaderlas");
     return FALSE;
   }
 
@@ -172,7 +174,7 @@ BOOL LASreaderStored::reopen()
   {
     delete lasreaderlas;
     lasreaderlas = 0;
-    fprintf(stderr, "ERROR: opening lasreaderlas from streaminarray\n");
+    laserror("opening lasreaderlas from streaminarray");
     return FALSE;
   }
 
@@ -184,8 +186,8 @@ BOOL LASreaderStored::reopen()
   lasreader->header.unlink();
 
   npoints = (header.number_of_point_records ? header.number_of_point_records : header.extended_number_of_point_records);
-  p_count = 0;
-
+  p_idx = 0;
+  p_cnt = 0;
 
   return TRUE;
 }
@@ -241,7 +243,8 @@ BOOL LASreaderStored::read_point_default()
       {
         laswriter->write_point(&point);
       }
-      p_count++;
+      p_idx++;
+      p_cnt++;
       return TRUE;
     }
     lasreader->close();
@@ -274,7 +277,7 @@ void LASreaderStored::close(BOOL close_stream)
   }
 }
 
-LASreaderStored::LASreaderStored()
+LASreaderStored::LASreaderStored(LASreadOpener* opener) :LASreader(opener)
 {
   lasreader = 0;
   laswriter = 0;

@@ -2,12 +2,13 @@
 ===============================================================================
 
   FILE:  lasdefinitions.hpp
-  
+
   CONTENTS:
-  
+
     Contains the Header and Point classes for reading and writing LiDAR points
     in the LAS format
 
+      Version 1.5,   Oct 13, 2025 
       Version 1.4,   Nov 14, 2011.
       Version 1.3,   Oct 24, 2010.
       Version 1.2, April 29, 2008.
@@ -16,11 +17,11 @@
 
   PROGRAMMERS:
 
-    martin.isenburg@rapidlasso.com  -  http://rapidlasso.com
+    info@rapidlasso.de  -  https://rapidlasso.de
 
   COPYRIGHT:
 
-    (c) 2005-2018, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2005-2018, rapidlasso GmbH - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -28,37 +29,44 @@
 
     This software is distributed WITHOUT ANY WARRANTY and without even the
     implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-  
+
   CHANGE HISTORY:
   
-    19 April 2017 -- support for selective decompression for new LAS 1.4 points 
+    13 October 2025 -- support for LAS 1.5
+    9 November 2022 -- support of COPC VLR and EVLR
+    19 April 2017 -- support for selective decompression for new LAS 1.4 points
     1 February 2017 -- better support for OGC WKT strings in VLRs or EVLRs
     22 June 2016 -- set default of VLR header "reserved" to 0 instead of 0xAABB
     1 August 2015 -- moving LASpoint, LASquantizer, and LASattributer to LASzip
     9 December 2013 -- bug fix and improved writing of new LAS 1.4 point types
-    21 December 2011 -- (limited) support for LAS 1.4 and attributed extra bytes 
+    21 December 2011 -- (limited) support for LAS 1.4 and attributed extra bytes
     10 January 2011 -- licensing change for LGPL release and liblas integration
     16 December 2010 -- updated to support generic LASitem point formats
     3 December 2010 -- updated to (somewhat) support LAS format 1.3
-    7 September 2008 -- updated to support LAS format 1.2 
+    7 September 2008 -- updated to support LAS format 1.2
     11 June 2007 -- number of return / scan direction bitfield order was wrong
     18 February 2007 -- created after repairing 2 vacuum cleaners in the garden
-  
+
 ===============================================================================
 */
 #ifndef LAS_DEFINITIONS_HPP
 #define LAS_DEFINITIONS_HPP
 
-#define LAS_TOOLS_VERSION 191020
+#define LAS_TOOLS_VERSION 260821
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <cassert>
+#include <functional>
 
 #include "mydefs.hpp"
+#include "lasvlr.hpp"
 #include "laszip.hpp"
 #include "laspoint.hpp"
+#include "lasmessage.hpp"
+
+#define LAS_TOOLS_COPYRIGHT "LAStools (c) by rapidlasso GmbH"
 
 #define LAS_TOOLS_FORMAT_DEFAULT 0
 #define LAS_TOOLS_FORMAT_LAS     1
@@ -73,41 +81,49 @@
 #define LAS_TOOLS_FORMAT_BIL    10
 #define LAS_TOOLS_FORMAT_FLT    11
 #define LAS_TOOLS_FORMAT_DTM    12
+#define LAS_TOOLS_FORMAT_JSON   13
+#define LAS_TOOLS_FORMAT_XML    14 
+#define LAS_TOOLS_FORMAT_CSV    15 
 
-#define LAS_TOOLS_GLOBAL_ENCODING_BIT_GPS_TIME_TYPE 0
-#define LAS_TOOLS_GLOBAL_ENCODING_BIT_WDP_INTERNAL  1
-#define LAS_TOOLS_GLOBAL_ENCODING_BIT_WDP_EXTERNAL  2
-#define LAS_TOOLS_GLOBAL_ENCODING_BIT_SYNTHETIC     3
-#define LAS_TOOLS_GLOBAL_ENCODING_BIT_OGC_WKT_CRS   4
+#define LAS_TOOLS_GLOBAL_ENCODING_BIT_GPS_TIME_TYPE    0
+#define LAS_TOOLS_GLOBAL_ENCODING_BIT_WDP_INTERNAL     1
+#define LAS_TOOLS_GLOBAL_ENCODING_BIT_WDP_EXTERNAL     2
+#define LAS_TOOLS_GLOBAL_ENCODING_BIT_SYNTHETIC        3
+#define LAS_TOOLS_GLOBAL_ENCODING_BIT_OGC_WKT_CRS      4
+// bit 5 unused
+#define LAS_TOOLS_GLOBAL_ENCODING_BIT_TIME_OFFSET_FLAG 6
 
 #define LAS_TOOLS_IO_IBUFFER_SIZE   262144
 #define LAS_TOOLS_IO_OBUFFER_SIZE   262144
 
-class LASvlr
+#define LAS_HEADER_CHAR_LEN 33
+#define LAS_VLR_USER_ID_CHAR_LEN 17
+
+class LASLIB_DLL LASvlr
 {
 public:
   U16 reserved;
-  CHAR user_id[16]; 
+  CHAR user_id[LAS_VLR_USER_ID_CHAR_LEN];
   U16 record_id;
   U16 record_length_after_header;
-  CHAR description[32];
+  CHAR description[LAS_HEADER_CHAR_LEN];
   U8* data;
   LASvlr() { memset(this, 0, sizeof(LASvlr)); };
 };
 
-class LASevlr
+class LASLIB_DLL LASevlr
 {
 public:
   U16 reserved;
-  CHAR user_id[16]; 
+  CHAR user_id[LAS_VLR_USER_ID_CHAR_LEN];
   U16 record_id;
   I64 record_length_after_header;
-  CHAR description[32];
+  CHAR description[LAS_HEADER_CHAR_LEN];
   U8* data;
   LASevlr() { memset(this, 0, sizeof(LASevlr)); };
 };
 
-class LASvlr_geo_keys
+class LASLIB_DLL LASvlr_geo_keys
 {
 public:
   U16 key_directory_version;
@@ -116,7 +132,7 @@ public:
   U16 number_of_keys;
 };
 
-class LASvlr_key_entry
+class LASLIB_DLL LASvlr_key_entry
 {
 public:
   U16 key_id;
@@ -125,24 +141,24 @@ public:
   U16 value_offset;
 };
 
-class LASvlr_classification
+class LASLIB_DLL LASvlr_classification
 {
 public:
   U8 class_number;
   CHAR description[15];
 };
 
-class LASvlr_wave_packet_descr
+class LASLIB_DLL LASvlr_wave_packet_descr
 {
 public:
   LASvlr_wave_packet_descr() {clean();};
   void clean() {memset(data, 0, 26);};
   inline U8 getBitsPerSample() const {return data[0];};
   inline U8 getCompressionType() const {return data[1];};
-  inline U32 getNumberOfSamples() const {return ((U32*)&(data[2]))[0];};
-  inline U32 getTemporalSpacing() const {return ((U32*)&(data[6]))[0];};
-  inline F64 getDigitizerGain() const {return ((F64*)&(data[10]))[0];};
-  inline F64 getDigitizerOffset() const {return ((F64*)&(data[18]))[0];};
+  inline U32 getNumberOfSamples() const {return ((const U32*)&(data[2]))[0];};
+  inline U32 getTemporalSpacing() const {return ((const U32*)&(data[6]))[0];};
+  inline F64 getDigitizerGain() const {return ((const F64*)&(data[10]))[0];};
+  inline F64 getDigitizerOffset() const {return ((const F64*)&(data[18]))[0];};
   inline void setBitsPerSample(U8 bps) {data[0] = bps;};
   inline void setCompressionType(U8 compression) {data[1] = compression;};
   inline void setNumberOfSamples(U32 samples) {((U32*)&(data[2]))[0] = samples;};
@@ -151,36 +167,64 @@ public:
   inline void setDigitizerOffset(F64 offset) {((F64*)&(data[18]))[0] = offset;};
 private:
   U8 data[26];
+
+public:
+  void check_wave_packet_descriptor(std::function<void(const std::string&, LAS_MESSAGE_TYPE)> emit) {
+    std::ostringstream oss_msg;
+
+    if ((getBitsPerSample() != 8) && (getBitsPerSample() != 16)) {
+      oss_msg << "bits per sample is " << (I32)getBitsPerSample() << " instead of 8 or 16 for wave packet descr ";
+      emit(oss_msg.str(), LAS_WARNING);
+    }
+    if (getNumberOfSamples() == 0) {
+      oss_msg << "number of samples is zero for wave packet descr ";
+      emit(oss_msg.str(), LAS_WARNING);
+    }
+    if (getNumberOfSamples() > 8096) {
+      oss_msg << "number of samples " << getNumberOfSamples() << " is unusually large for wave packet descr ";
+      emit(oss_msg.str(), LAS_WARNING);
+    }
+    if (getTemporalSpacing() == 0) {
+      oss_msg << "temporal spacing is zero for wave packet descr ";
+      emit(oss_msg.str(), LAS_WARNING);
+    }
+  }
 };
 
-class LASvlr_lastiling
+class LASLIB_DLL LASvlr_copc_info
 {
 public:
-  U32 level;
-  U32 level_index;
-  U32 implicit_levels : 30;
-  U32 buffer : 1;
-  U32 reversible : 1;
-  F32 min_x;
-  F32 max_x;
-  F32 min_y;
-  F32 max_y;
+  F64 center_x;  // Actual (unscaled) X coordinate of center of octree
+  F64 center_y;  // Actual (unscaled) Y coordinate of center of octree
+  F64 center_z;  // Actual (unscaled) Z coordinate of center of octree
+  F64 halfsize;  // Perpendicular distance from the center to any side of the root node.
+  F64 spacing;   // Space between points at the root node. This value is halved at each octree level
+  U64 root_hier_offset; // File offset to the first hierarchy page
+  U64 root_hier_size;   // Size of the first hierarchy page in bytes
+  F64 gpstime_minimum;    // Minimum of GPSTime
+  F64 gpstime_maximum;   // Maximum of GPSTime
+  U64 reserved[11];    // Must be 0
 };
 
-class LASvlr_lasoriginal
+class LASLIB_DLL LAScopc_voxelkey
 {
 public:
-  I64 number_of_point_records;
-  I64 number_of_points_by_return[15];
-  F64 max_x;
-  F64 min_x;
-  F64 max_y;
-  F64 min_y;
-  F64 max_z;
-  F64 min_z;
+  I32 depth;
+  I32 x;
+  I32 y;
+  I32 z;
 };
 
-class LASheader : public LASquantizer, public LASattributer
+class LASLIB_DLL LASvlr_copc_entry
+{
+public:
+  LAScopc_voxelkey key;
+  U64 offset;
+  U32 byte_size;
+  I32 point_count;
+};
+
+class LASLIB_DLL LASheader : public LASquantizer, public LASattributer
 {
 public:
   CHAR file_signature[4];                  // starts at byte   0
@@ -192,8 +236,8 @@ public:
   U8 project_ID_GUID_data_4[8];            // starts at byte  16
   U8 version_major;                        // starts at byte  24
   U8 version_minor;                        // starts at byte  25
-  CHAR system_identifier[32];              // starts at byte  26
-  CHAR generating_software[32];            // starts at byte  58
+  CHAR system_identifier[LAS_HEADER_CHAR_LEN]; // [32]chars+\0 - starts at byte  26
+  CHAR generating_software[LAS_HEADER_CHAR_LEN]; // [32]chars+\0 at byte  58
   U16 file_creation_day;                   // starts at byte  90
   U16 file_creation_year;                  // starts at byte  92
   U16 header_size;                         // starts at byte  94
@@ -219,6 +263,11 @@ public:
   U64 extended_number_of_point_records;
   U64 extended_number_of_points_by_return[15];
 
+  // LAS 1.5 only
+  F64 max_gps_time;
+  F64 min_gps_time;
+  U16 time_offset;
+
   U32 user_data_in_header_size;
   U8* user_data_in_header;
 
@@ -232,6 +281,11 @@ public:
   CHAR* vlr_geo_ogc_wkt;
   LASvlr_classification* vlr_classification;
   LASvlr_wave_packet_descr** vlr_wave_packet_descr;
+
+  // LAZ 1.4 format 6 7 8 with COPC only
+  U32 number_of_copc_entries;
+  LASvlr_copc_info* vlr_copc_info;
+  LASvlr_copc_entry* vlr_copc_entries;
 
   LASzip* laszip;
   LASvlr_lastiling* vlr_lastiling;
@@ -273,9 +327,9 @@ public:
       }
       else
       {
-        x_offset = ((I32)((min_x + max_x)/200000))*100000;
-        y_offset = ((I32)((min_y + max_y)/200000))*100000;
-        z_offset = ((I32)((min_z + max_z)/200000))*100000;
+        x_offset = ((I32)((min_x + max_x)/200000))*100000.0;
+        y_offset = ((I32)((min_y + max_y)/200000))*100000.0;
+        z_offset = ((I32)((min_z + max_z)/200000))*100000.0;
       }
     }
     this->min_x = x_offset + x_scale_factor*I32_QUANTIZE((min_x-x_offset)/x_scale_factor);
@@ -301,6 +355,34 @@ public:
     return (BOOL)(global_encoding & (1 << bit));
   }
 
+  /// Returns a string list of the 'important' global_encoding flags, sorted by priority
+  std::vector<std::string> get_global_encoding_list() {
+    std::vector<std::string> result;
+
+    // bit 4
+    if (global_encoding & 16) {
+      result.emplace_back("WKT");
+    } else {
+      result.emplace_back("GeoTiff");
+    }
+
+    // bit 0 only if no GPS offset
+    if (global_encoding & 64) {  // bit 6
+      result.emplace_back("GpsOffs");
+    } else if (global_encoding & 1) {
+      result.emplace_back("GpsStd");
+    } else {
+      result.emplace_back("GpsWeek");
+    }
+
+    // other independent bits
+    if (global_encoding & 8) result.emplace_back("Syn");     // bit 3
+    if (global_encoding & 4) result.emplace_back("WDPext");  // bit 2
+    if (global_encoding & 2) result.emplace_back("WDPint");  // bit 1
+
+    return result;
+  }
+
   // clean functions
 
   void clean_las_header()
@@ -315,6 +397,13 @@ public:
     x_scale_factor = 0.01;
     y_scale_factor = 0.01;
     z_scale_factor = 0.01;
+    x_offset = 0.0;
+    y_offset = 0.0;
+    z_offset = 0.0;
+    z_from_attrib = -1;
+    time_offset = 0;
+    min_gps_time = 0;
+    max_gps_time = 0;
   };
 
   void clean_user_data_in_header()
@@ -353,6 +442,10 @@ public:
       vlr_classification = 0;
       if (vlr_wave_packet_descr) delete [] vlr_wave_packet_descr;
       vlr_wave_packet_descr = 0;
+      if (vlr_copc_info) delete vlr_copc_info;
+      vlr_copc_info = 0;
+      if (vlr_copc_entries) delete [] vlr_copc_entries;
+      vlr_copc_entries = 0;
       number_of_variable_length_records = 0;
     }
   };
@@ -460,42 +553,53 @@ public:
   {
     if (strncmp(file_signature, "LASF", 4) != 0)
     {
-      fprintf(stderr,"ERROR: wrong file signature '%4s'\n", file_signature);
+      laserror("wrong file signature '%4s'", file_signature);
       return FALSE;
     }
-    if ((version_major != 1) || (version_minor > 4))
+    if ((version_major != 1) || (version_minor > 5))
     {
-      fprintf(stderr,"WARNING: unknown version %d.%d (should be 1.0 or 1.1 or 1.2 or 1.3 or 1.4)\n", version_major, version_minor);
+      LASMessage(LAS_WARNING, "unknown version %d.%d (allowed 1.0-1.5)", version_major, version_minor);
+    }
+    U8 pdf = point_data_format & 0x7f; // remove LAZ bit 7
+    if (((version_minor < 4) && (pdf >= 6)) ||
+        ((version_minor < 3) && (pdf >= 4)) ||
+        ((version_minor < 2) && (pdf >= 2))) {
+        LASMessage(LAS_WARNING, "LAS version %d.%d does not allow point format %d", version_major, version_minor, pdf);
+    }
+    // LAS 1.5 removed support for point format 0-5. 
+    if ((version_minor > 4) && (pdf < 6)) {
+        LASMessage(LAS_WARNING, "LAS version %d.%d does not allow point format %d", version_major, version_minor, pdf);
     }
     if (header_size < 227)
     {
-      fprintf(stderr,"ERROR: header size is %d but should be at least 227\n", header_size);
+      laserror("header size is %d but should be at least 227", header_size);
       return FALSE;
     }
     if (offset_to_point_data < header_size)
     {
-      fprintf(stderr,"ERROR: offset to point data %d is smaller than header size %d\n", offset_to_point_data, header_size);
+      laserror("offset to point data %d is smaller than header size %d", offset_to_point_data, header_size);
       return FALSE;
     }
     if (x_scale_factor == 0)
     {
-      fprintf(stderr,"WARNING: x scale factor is zero.\n");
+      LASMessage(LAS_WARNING, "x scale factor is zero.");
     }
     if (y_scale_factor == 0)
     {
-      fprintf(stderr,"WARNING: y scale factor is zero.\n");
+      LASMessage(LAS_WARNING, "y scale factor is zero.");
     }
     if (z_scale_factor == 0)
     {
-      fprintf(stderr,"WARNING: z scale factor is zero.\n");
+      LASMessage(LAS_WARNING, "z scale factor is zero.");
     }
     if (max_x < min_x || max_y < min_y || max_z < min_z)
     {
       if (number_of_point_records || extended_number_of_point_records)
       {
-        fprintf(stderr,"WARNING: invalid bounding box [ %g %g %g / %g %g %g ]\n", min_x, min_y, min_z, max_x, max_y, max_z);
+        LASMessage(LAS_WARNING, "invalid bounding box [ %g %g %g / %g %g %g ]", min_x, min_y, min_z, max_x, max_y, max_z);
       }
     }
+    // note: min_gps_time and max_gps_time not part of core fields and are not read at the time of this check
     return TRUE;
   };
 
@@ -526,7 +630,7 @@ public:
   };
 
   // note that data needs to be allocated with new [] and not malloc and that LASheader
-  // will become the owner over this and manage its deallocation 
+  // will become the owner over this and manage its deallocation
   BOOL add_vlr(const CHAR* user_id, const U16 record_id, const U16 record_length_after_header, U8* data, const BOOL keep_description=FALSE, const CHAR* description=0, const BOOL keep_existing=FALSE)
   {
     U32 i = 0;
@@ -558,42 +662,46 @@ public:
       {
         number_of_variable_length_records++;
         offset_to_point_data += 54;
-        vlrs = (LASvlr*)realloc(vlrs, sizeof(LASvlr)*number_of_variable_length_records);
+        vlrs = (LASvlr*)realloc_las(vlrs, sizeof(LASvlr)*number_of_variable_length_records);
       }
     }
     else
     {
       number_of_variable_length_records = 1;
       offset_to_point_data += 54;
-      vlrs = (LASvlr*)malloc(sizeof(LASvlr));
+      vlrs = (LASvlr*)malloc_las(sizeof(LASvlr));
     }
-    memset(&(vlrs[i]), 0, sizeof(LASvlr));
-    vlrs[i].reserved = 0; // used to be 0xAABB
-    strncpy(vlrs[i].user_id, user_id, 16);
-    vlrs[i].record_id = record_id;
-    vlrs[i].record_length_after_header = record_length_after_header;
-    if (keep_description && found_description)
-    {
-      // do nothing
+    if (vlrs != nullptr) {
+      memset((void*)&(vlrs[i]), 0, sizeof(LASvlr));
+      vlrs[i].reserved = 0; // used to be 0xAABB
+      strncpy_las(vlrs[i].user_id, LAS_VLR_USER_ID_CHAR_LEN, user_id, LAS_VLR_USER_ID_CHAR_LEN-1);
+      vlrs[i].record_id = record_id;
+      vlrs[i].record_length_after_header = record_length_after_header;
+
+      if (keep_description && found_description)
+      {
+        // do nothing
+      }
+      else if (description)
+      {
+        // to be optimized: could hold 32 chars without trailing 0
+        snprintf(vlrs[i].description, sizeof(vlrs[i].description), "%.31s", description);
+      }
+      else
+      {
+        snprintf(vlrs[i].description, sizeof(vlrs[i].description), "by LAStools of rapidlasso GmbH");
+      }
+      if (record_length_after_header)
+      {
+        offset_to_point_data += record_length_after_header;
+        vlrs[i].data = data;
+      }
+      else
+      {
+        vlrs[i].data = 0;
+      }
     }
-    else if (description)
-    {
-      sprintf(vlrs[i].description, "%.31s", description);
-    }
-    else
-    {
-      sprintf(vlrs[i].description, "by LAStools of rapidlasso GmbH");
-    }
-    if (record_length_after_header)
-    {
-      offset_to_point_data += record_length_after_header;
-      vlrs[i].data = data;
-    }
-    else
-    {
-      vlrs[i].data = 0;
-    }
-		return TRUE;
+    return TRUE;
   };
 
   const LASvlr* get_vlr(const CHAR* user_id, U16 record_id) const
@@ -627,7 +735,7 @@ public:
         if (number_of_variable_length_records)
         {
           vlrs[i] = vlrs[number_of_variable_length_records];
-          vlrs = (LASvlr*)realloc(vlrs, sizeof(LASvlr)*number_of_variable_length_records);
+          vlrs = (LASvlr*)realloc_las(vlrs, sizeof(LASvlr)*number_of_variable_length_records);
         }
         else
         {
@@ -655,7 +763,7 @@ public:
   };
 
   // note that data needs to be allocated with new [] and not malloc and that LASheader
-  // will become the owner over this and manage its deallocation 
+  // will become the owner over this and manage its deallocation
   void add_evlr(const CHAR* user_id, const U16 record_id, const I64 record_length_after_header, U8* data, const BOOL keep_description=FALSE, const CHAR* description=0, const BOOL keep_existing=FALSE)
   {
     U32 i = 0;
@@ -664,11 +772,11 @@ public:
     {
       if (keep_existing)
       {
-        i = number_of_variable_length_records;
+        i = number_of_extended_variable_length_records;
       }
       else
       {
-        for (i = 0; i < number_of_variable_length_records; i++)
+        for (i = 0; i < number_of_extended_variable_length_records; i++)
         {
           if ((strcmp(evlrs[i].user_id, user_id) == 0) && (evlrs[i].record_id == record_id))
           {
@@ -685,37 +793,41 @@ public:
       if (i == number_of_extended_variable_length_records)
       {
         number_of_extended_variable_length_records++;
-        evlrs = (LASevlr*)realloc(evlrs, sizeof(LASevlr)*number_of_extended_variable_length_records);
+        evlrs = (LASevlr*)realloc_las(evlrs, sizeof(LASevlr)*number_of_extended_variable_length_records);
       }
     }
     else
     {
       number_of_extended_variable_length_records = 1;
-      evlrs = (LASevlr*)malloc(sizeof(LASevlr)*number_of_extended_variable_length_records);
+      evlrs = (LASevlr*)malloc_las(sizeof(LASevlr) * number_of_extended_variable_length_records);
     }
-    evlrs[i].reserved = 0; // used to be 0xAABB
-    strncpy(evlrs[i].user_id, user_id, 16);
-    evlrs[i].record_id = record_id;
-    evlrs[i].record_length_after_header = record_length_after_header;
-    if (keep_description && found_description)
-    {
-      // do nothing
-    }
-    else if (description)
-    {
-      sprintf(evlrs[i].description, "%.31s", description);
-    }
-    else
-    {
-      sprintf(evlrs[i].description, "by LAStools of rapidlasso GmbH");
-    }
-    if (record_length_after_header)
-    {
-      evlrs[i].data = data;
-    }
-    else
-    {
-      evlrs[i].data = 0;
+    if (evlrs != nullptr) {
+      memset((void*)&(evlrs[i]), 0, sizeof(LASevlr));
+      evlrs[i].reserved = 0;  // used to be 0xAABB
+      strncpy_las(evlrs[i].user_id, LAS_VLR_USER_ID_CHAR_LEN, user_id);
+      evlrs[i].record_id = record_id;
+      evlrs[i].record_length_after_header = record_length_after_header;
+
+      if (keep_description && found_description)
+      {
+        // do nothing
+      }
+      else if (description)
+      {
+        snprintf(evlrs[i].description, sizeof(evlrs[i].description), "%.31s", description);
+      }
+      else
+      {
+        snprintf(evlrs[i].description, sizeof(evlrs[i].description), "by LAStools of rapidlasso GmbH");
+      }
+      if (record_length_after_header)
+      {
+        evlrs[i].data = data;
+      }
+      else
+      {
+        evlrs[i].data = 0;
+      }
     }
   };
 
@@ -736,7 +848,7 @@ public:
         if (number_of_extended_variable_length_records)
         {
           evlrs[i] = evlrs[number_of_extended_variable_length_records];
-          evlrs = (LASevlr*)realloc(evlrs, sizeof(LASvlr)*number_of_extended_variable_length_records);
+          evlrs = (LASevlr*)realloc_las(evlrs, sizeof(LASevlr)*number_of_extended_variable_length_records);
         }
         else
         {
@@ -934,7 +1046,7 @@ public:
       vlr_geo_ogc_wkt_math[num_geo_wkt_ogc_math] = '\0';
     }
     memcpy(vlr_geo_ogc_wkt_math, geo_wkt_ogc_math, sizeof(CHAR)*num_geo_wkt_ogc_math);
-    add_vlr("LASF_Projection", 2111, (U16)(sizeof(CHAR)*(num_geo_wkt_ogc_math+null_terminator)), (U8*)vlr_geo_ogc_wkt_math);
+    add_vlr("LASF_Projection", 2111, (U16)(sizeof(CHAR)*(static_cast<I64>(num_geo_wkt_ogc_math)+null_terminator)), (U8*)vlr_geo_ogc_wkt_math);
   }
 
   void del_geo_wkt_ogc_math()
@@ -943,6 +1055,23 @@ public:
     {
       remove_vlr("LASF_Projection", 2111);
       vlr_geo_ogc_wkt_math = 0;
+    }
+  }
+
+  void del_copc()
+  {
+    if (vlr_copc_info)
+    {
+      remove_vlr("copc", 1);
+	  delete vlr_copc_info;
+      vlr_copc_info = 0;
+    }
+
+    if (vlr_copc_entries)
+    {
+      remove_evlr("copc", 1000);
+      delete[] vlr_copc_entries;
+      vlr_copc_entries = 0;
     }
   }
 
@@ -962,11 +1091,11 @@ public:
     memcpy(vlr_geo_ogc_wkt, geo_ogc_wkt, sizeof(CHAR)*num_geo_ogc_wkt);
     if (in_evlr)
     {
-      add_evlr("LASF_Projection", 2112, sizeof(CHAR)*(num_geo_ogc_wkt+null_terminator), (U8*)vlr_geo_ogc_wkt);
+      add_evlr("LASF_Projection", 2112, sizeof(CHAR)*(static_cast<I64>(num_geo_ogc_wkt)+null_terminator), (U8*)vlr_geo_ogc_wkt);
     }
     else
     {
-      add_vlr("LASF_Projection", 2112, (U16)(sizeof(CHAR)*(num_geo_ogc_wkt+null_terminator)), (U8*)vlr_geo_ogc_wkt);
+      add_vlr("LASF_Projection", 2112, (U16)(sizeof(CHAR)*(static_cast<I64>(num_geo_ogc_wkt)+null_terminator)), (U8*)vlr_geo_ogc_wkt);
     }
   }
 
@@ -998,6 +1127,99 @@ public:
       return remove_vlr("LASF_Spec", 4);
     }
   }
+
+  // getter functions
+
+  std::string get_GUID() {
+    char guid_buffer[256];
+    snprintf(
+        guid_buffer, sizeof(guid_buffer), "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", project_ID_GUID_data_1, project_ID_GUID_data_2,
+        project_ID_GUID_data_3, project_ID_GUID_data_4[0], project_ID_GUID_data_4[1], project_ID_GUID_data_4[2], project_ID_GUID_data_4[3],
+        project_ID_GUID_data_4[4], project_ID_GUID_data_4[5], project_ID_GUID_data_4[6], project_ID_GUID_data_4[7]);
+    return std::string(guid_buffer);
+  }
+
+  std::string get_version() {
+    char version_buffer[16];
+    snprintf(version_buffer, sizeof(version_buffer), "%d.%d", version_major, version_minor);
+    return std::string(version_buffer);
+  }
+
+  // LAS version as number: 1.3 equivalent to 13
+  U16 get_version_number() const {
+    return (version_major * 10) + version_minor;
+  }
+
+  /// Converts the year and day of year stored in the LAS header into a YYYY-MM-DD date or 'unknown' if the values are invalid and retuns it
+  std::string get_dayOfYear_to_date_string() {
+    if (this->file_creation_year == 0 || this->file_creation_day == 0) {
+      return "";
+    }
+
+    std::tm date = {};
+    date.tm_year = this->file_creation_year - 1900;
+    date.tm_mday = this->file_creation_day;
+
+    if (std::mktime(&date) == -1) {
+      return "";
+    }
+
+    char buffer[16];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", &date);
+    return buffer;
+  }
+
+  /// Converts the year and day of year stored in the LAS header into a single number with format YYYYMMDD
+  U32 get_dayOfYear_to_date_number() {
+    if (this->file_creation_year == 0 || this->file_creation_day == 0) {
+      return 0;
+    }
+
+    std::tm date = {};
+    date.tm_year = this->file_creation_year - 1900;
+    date.tm_mday = this->file_creation_day;
+
+    if (std::mktime(&date) == -1) {
+      return 0;
+    }
+
+    // yyyymmdd
+    U32 y = date.tm_year + 1900;
+    U32 m = date.tm_mon + 1;
+    U32 d = date.tm_mday;
+
+    return y * 10000 + m * 100 + d;
+  }
+
+  U64 get_number_of_point_records_uni() {
+    if (this->extended_number_of_point_records != 0) {
+      return this->extended_number_of_point_records;
+    }
+    return this->number_of_point_records;
+  }
+
+  void set_number_of_point_records_uni(U64 value) {
+    if (this->version_major > 1 || (this->version_major == 1 && this->version_minor >= 4)) {
+      // LAS 1.4
+      this->extended_number_of_point_records = value;
+      this->number_of_point_records = 0;
+    } else {
+      // LAS 1.0-1.3
+      this->number_of_point_records = (U32)value;
+      this->extended_number_of_point_records = 0;
+    }
+  }
+
+  U64 get_number_of_points_by_return_uni(U8 idx) {
+    if (this->version_minor >= 4 ) {
+      if (idx < 15) {
+        return this->extended_number_of_points_by_return[idx];
+      }
+    } else if (idx < 5) {
+      return this->number_of_points_by_return[idx];
+    }
+    return 0;
+  };
 
   ~LASheader()
   {

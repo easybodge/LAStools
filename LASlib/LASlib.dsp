@@ -129,6 +129,10 @@ SOURCE=..\LASzip\src\lasinterval.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\laskdtree.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\LASzip\src\lasquadtree.cpp
 # End Source File
 # Begin Source File
@@ -275,6 +279,10 @@ SOURCE=.\src\laswritercompatible.cpp
 
 SOURCE=..\LASzip\src\laszip.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=..\LASzip\src\mydefs.cpp
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -354,6 +362,10 @@ SOURCE=..\LASzip\src\lasindex.hpp
 # Begin Source File
 
 SOURCE=..\LASzip\src\lasinterval.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\inc\laskdtree.hpp
 # End Source File
 # Begin Source File
 
@@ -458,6 +470,14 @@ SOURCE=.\inc\lastransform.hpp
 # Begin Source File
 
 SOURCE=.\inc\lasutility.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\inc\lasvlr.hpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\inc\lasvlrpayload.hpp
 # End Source File
 # Begin Source File
 

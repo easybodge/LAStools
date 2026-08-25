@@ -2,18 +2,18 @@
 ===============================================================================
 
   FILE:  lasreaderpipeon.cpp
-  
+
   CONTENTS:
-  
+
     see corresponding header file
-  
+
   PROGRAMMERS:
-  
-    martin.isenburg@rapidlasso.com  -  http://rapidlasso.com
-  
+
+    info@rapidlasso.de  -  https://rapidlasso.de
+
   COPYRIGHT:
-  
-    (c) 2007-2012, martin isenburg, rapidlasso - fast tools to catch reality
+
+    (c) 2007-2012, rapidlasso GmbH - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -21,16 +21,18 @@
 
     This software is distributed WITHOUT ANY WARRANTY and without even the
     implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-  
+
   CHANGE HISTORY:
-  
+
     see corresponding header file
-  
+
 ===============================================================================
 */
 #include "lasreaderpipeon.hpp"
 
+#include "lasmessage.hpp"
 #include "lasindex.hpp"
+#include "lascopc.hpp"
 #include "lasfilter.hpp"
 #include "lastransform.hpp"
 
@@ -43,7 +45,7 @@ BOOL LASreaderPipeOn::open(LASreader* lasreader)
 {
   if (lasreader == 0)
   {
-    fprintf(stderr, "ERROR: no lasreader\n");
+    laserror("no lasreader");
     return FALSE;
   }
 
@@ -89,21 +91,22 @@ BOOL LASreaderPipeOn::open(LASreader* lasreader)
 
   if (laswriterlas == 0)
   {
-    fprintf(stderr, "ERROR: allocating laswriterlas\n");
+    laserror("allocating laswriterlas");
     return FALSE;
   }
 
   if (!laswriterlas->open(stdout, &header))
   {
     delete laswriterlas;
-    fprintf(stderr, "ERROR: opening laswriterlas to stdout\n");
+    laserror("opening laswriterlas to stdout");
     return FALSE;
   }
 
   laswriter = laswriterlas;
 
   npoints = (header.number_of_point_records ? header.number_of_point_records : header.extended_number_of_point_records);
-  p_count = 0;
+  p_idx = 0;
+  p_cnt = 0;
 
   return TRUE;
 }
@@ -116,6 +119,16 @@ void LASreaderPipeOn::set_index(LASindex* index)
 LASindex* LASreaderPipeOn::get_index() const
 {
   return (lasreader ? lasreader->get_index() : 0);
+}
+
+void LASreaderPipeOn::set_copcindex(COPCindex* copcindex)
+{
+  if (lasreader) lasreader->set_copcindex(copcindex);
+}
+
+COPCindex* LASreaderPipeOn::get_copcindex() const
+{
+  return (lasreader ? lasreader->get_copcindex() : 0);
 }
 
 void LASreaderPipeOn::set_filter(LASfilter* filter)
@@ -143,6 +156,11 @@ BOOL LASreaderPipeOn::inside_rectangle(const F64 min_x, const F64 min_y, const F
   return (lasreader ? lasreader->inside_rectangle(min_x, min_y, max_x, max_y) : FALSE);
 }
 
+BOOL LASreaderPipeOn::inside_copc_depth(const U8 mode, const I32 depth, const F32 resolution)
+{
+  return (lasreader ? lasreader->inside_copc_depth(mode, depth, resolution) : FALSE);
+}
+
 I32 LASreaderPipeOn::get_format() const
 {
   return (lasreader ? lasreader->get_format() : LAS_TOOLS_FORMAT_DEFAULT);
@@ -159,7 +177,8 @@ BOOL LASreaderPipeOn::read_point_default()
       {
         laswriter->write_point(&point);
       }
-      p_count++;
+      p_idx++;
+      p_cnt++;
       return TRUE;
     }
     if (laswriter)
@@ -175,13 +194,13 @@ BOOL LASreaderPipeOn::read_point_default()
 
 void LASreaderPipeOn::close(BOOL close_stream)
 {
-  if (lasreader) 
+  if (lasreader)
   {
     lasreader->close(close_stream);
   }
 }
 
-LASreaderPipeOn::LASreaderPipeOn()
+LASreaderPipeOn::LASreaderPipeOn(LASreadOpener* opener) :LASreader(opener)
 {
   lasreader = 0;
   laswriter = 0;

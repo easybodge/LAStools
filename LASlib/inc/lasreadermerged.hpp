@@ -9,11 +9,11 @@
 
   PROGRAMMERS:
 
-    martin.isenburg@rapidlasso.com  -  http://rapidlasso.com
+    info@rapidlasso.de  -  https://rapidlasso.de
 
   COPYRIGHT:
 
-    (c) 2007-2017, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2007-2019, rapidlasso GmbH - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
     terms of the GNU Lesser General Licence as published by the Free Software
@@ -24,6 +24,8 @@
   
   CHANGE HISTORY:
   
+     2 May 2023 -- adding support of COPC spatial index standard
+     4 November 2019 -- add ID to files for subsets of merged '-faf' files
      5 September 2018 -- support for reading points from the PLY format
      1 December 2017 -- support extra bytes during '-merged' operations
      3 May 2015 -- header sets file source ID to 0 when merging flightlines 
@@ -43,14 +45,16 @@
 #include "lasreader_ply.hpp"
 #include "lasreader_qfit.hpp"
 #include "lasreader_txt.hpp"
+#include <unordered_set>
 
-class LASreaderMerged : public LASreader
+class LASLIB_DLL LASreaderMerged : public LASreader
 {
 public:
 
   void set_io_ibuffer_size(I32 io_ibuffer_size);
   inline I32 get_io_ibuffer_size() const { return io_ibuffer_size; };
   BOOL add_file_name(const CHAR* file_name);
+  BOOL add_file_name(const CHAR* file_name, U32 ID);
   void set_scale_factor(const F64* scale_factor);
   void set_offset(const F64* offset);
   void set_files_are_flightlines(const I32 files_are_flightlines);
@@ -63,6 +67,7 @@ public:
   void set_skip_lines(I32 skip_lines);
   void set_populate_header(BOOL populate_header);
   void set_keep_lastiling(BOOL keep_lastiling);
+  void set_copc_stream_order(U8 order);
   BOOL open();
   BOOL reopen();
 
@@ -72,6 +77,7 @@ public:
   BOOL inside_tile(const F32 ll_x, const F32 ll_y, const F32 size);
   BOOL inside_circle(const F64 center_x, const F64 center_y, const F64 radius);
   BOOL inside_rectangle(const F64 min_x, const F64 min_y, const F64 max_x, const F64 max_y);
+  BOOL inside_copc_depth(const U8 mode, const I32 depth, const F32 resolution);
 
   I32 get_format() const;
 
@@ -80,7 +86,7 @@ public:
   ByteStreamIn* get_stream() const { return 0; };
   void close(BOOL close_stream=TRUE);
 
-  LASreaderMerged();
+  LASreaderMerged(LASreadOpener* opener);
   ~LASreaderMerged();
 
 protected:
@@ -101,6 +107,7 @@ private:
   LASreaderQFIT* lasreaderqfit;
   LASreaderTXT* lasreadertxt;
   BOOL point_type_change;
+  BOOL gps_transform;
   BOOL point_size_change;
   BOOL additional_attribute_change;
   BOOL rescale;
@@ -122,7 +129,9 @@ private:
   U32 file_name_allocated;
   I32 io_ibuffer_size;
   CHAR** file_names;
+  U32* file_names_ID;
   F64* bounding_boxes;
+  std::unordered_set<size_t> filtered_file_number;
 };
 
 #endif

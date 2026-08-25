@@ -219,6 +219,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "lasdatum"=.\src_full\lasdatum.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "lasdiff"=.\src\lasdiff.dsp - Package Owner=<4>
 
 Package=<5>
@@ -351,6 +363,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "lasmulticlip"=.\src_full\lasmulticlip.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "lasnoise"=.\src_full\lasnoise.dsp - Package Owner=<4>
 
 Package=<5>
@@ -424,6 +448,18 @@ Package=<4>
 ###############################################################################
 
 Project: "lasprecision"=.\src\lasprecision.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "lasprobe"=.\src_full\lasprobe.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -556,6 +592,18 @@ Package=<4>
 ###############################################################################
 
 Project: "lastrajectory"=.\src_full\lastrajectory.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "lasvdatum"=.\src_full\lasvdatum.dsp - Package Owner=<4>
 
 Package=<5>
 {{{

@@ -9,14 +9,14 @@
 
   PROGRAMMERS:
 
-    martin.isenburg@rapidlasso.com  -  http://rapidlasso.com
+    info@rapidlasso.de  -  https://rapidlasso.de
 
   COPYRIGHT:
 
-    (c) 2007-2017, martin isenburg, rapidlasso - fast tools to catch reality
+    (c) 2007-2022, rapidlasso GmbH - fast tools to catch reality
 
     This is free software; you can redistribute and/or modify it under the
-    terms of the GNU Lesser General Licence as published by the Free Software
+    terms of the Apache Public License 2.0 published by the Apache Software
     Foundation. See the COPYING file for more information.
 
     This software is distributed WITHOUT ANY WARRANTY and without even the
@@ -24,6 +24,7 @@
 
   CHANGE HISTORY:
 
+    17 October 2025 -- support for LAS 1.5 
     22 August 2017 -- Add version info.
     4 August 2017 -- 'laszip_set_point_type_and_size()' as minimal setup for ostream writer
     3 August 2017 -- new 'laszip_create_laszip_vlr()' gets VLR as C++ std::vector
@@ -53,8 +54,9 @@
 #define LASZIP_API_H
 
 #ifdef LASZIP_API_VERSION
-#include <laszip/laszip_api_version.h>
+#include "laszip_api_version.h"
 #endif
+#include "laszip_common.h"
 
 #ifdef _WIN32
 #   ifdef LASZIP_DYN_LINK
@@ -80,9 +82,12 @@ extern "C"
 /*---------------------------------------------------------------------------*/
 /*--------------- DLL variables to pass data to/from LASzip -----------------*/
 /*---------------------------------------------------------------------------*/
-
-#ifdef _WIN32
 typedef int                laszip_BOOL;
+typedef char               laszip_CHAR;
+typedef float              laszip_F32;
+typedef double             laszip_F64;
+typedef void*              laszip_POINTER;
+#ifdef _WIN32
 typedef unsigned char      laszip_U8;
 typedef unsigned short     laszip_U16;
 typedef unsigned int       laszip_U32;
@@ -91,13 +96,8 @@ typedef char               laszip_I8;
 typedef short              laszip_I16;
 typedef int                laszip_I32;
 typedef __int64            laszip_I64;
-typedef char               laszip_CHAR;
-typedef float              laszip_F32;
-typedef double             laszip_F64;
-typedef void*              laszip_POINTER;
 #else
 #include <stdint.h>
-typedef int                laszip_BOOL;
 typedef uint8_t            laszip_U8;
 typedef uint16_t           laszip_U16;
 typedef uint32_t           laszip_U32;
@@ -106,10 +106,6 @@ typedef int8_t             laszip_I8;
 typedef int16_t            laszip_I16;
 typedef int32_t            laszip_I32;
 typedef int64_t            laszip_I64;
-typedef char               laszip_CHAR;
-typedef float              laszip_F32;
-typedef double             laszip_F64;
-typedef void*              laszip_POINTER;
 #endif
 
 typedef struct laszip_geokey
@@ -120,13 +116,16 @@ typedef struct laszip_geokey
   laszip_U16 value_offset;
 } laszip_geokey_struct;
 
+#define LAS_VLR_USER_ID_CHAR_LEN 17
+#define LAS_VLR_DESC_CHAR_LEN 33
+
 typedef struct laszip_vlr
 {
   laszip_U16 reserved;
-  laszip_CHAR user_id[16];
+  laszip_CHAR user_id[LAS_VLR_USER_ID_CHAR_LEN];
   laszip_U16 record_id;
   laszip_U16 record_length_after_header;
-  laszip_CHAR description[32];
+  laszip_CHAR description[LAS_VLR_DESC_CHAR_LEN];
   laszip_U8* data;
 } laszip_vlr_struct;
 
@@ -172,6 +171,11 @@ typedef struct laszip_header
   laszip_U32 number_of_extended_variable_length_records;
   laszip_U64 extended_number_of_point_records;
   laszip_U64 extended_number_of_points_by_return[15];
+
+  // LAS 1.5 and higher only
+  laszip_F64 max_gps_time;
+  laszip_F64 min_gps_time;
+  laszip_U16 time_offset;
 
   // optional
   laszip_U32 user_data_in_header_size;
@@ -225,6 +229,12 @@ typedef struct laszip_point
 
 } laszip_point_struct;
 
+typedef void(*laszip_message_handler)(
+  enum LAS_MESSAGE_TYPE                type
+  , const char*                        msg
+  , void*                              user_data
+);
+
 /*---------------------------------------------------------------------------*/
 /*------ DLL constants for selective decompression via LASzip DLL -----------*/
 /*---------------------------------------------------------------------------*/
@@ -275,8 +285,35 @@ laszip_create(
 
 /*---------------------------------------------------------------------------*/
 LASZIP_API laszip_I32
-laszip_get_error
-(
+laszip_set_las_message_handler(
+    laszip_POINTER                     pointer
+    , laszip_message_handler           callback
+    , void*                            user_data
+);
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
+laszip_unset_las_message_handler(
+    laszip_POINTER                     pointer
+);
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
+laszip_set_las_message_log_level(
+    laszip_POINTER                     pointer
+    , enum LAS_MESSAGE_TYPE            type
+);
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
+laszip_get_las_message_log_level(
+    laszip_POINTER                     pointer
+    , enum LAS_MESSAGE_TYPE*           type
+);
+
+/*---------------------------------------------------------------------------*/
+LASZIP_API laszip_I32
+laszip_get_error(
     laszip_POINTER                     pointer
     , laszip_CHAR**                    error
 );
@@ -568,13 +605,13 @@ laszip_close_reader(
 /*---------------------------------------------------------------------------*/
 
 /*---------------------------------------------------------------------------*/
-LASZIP_API laszip_I32
+laszip_I32 
 laszip_load_dll
 (
 );
 
 /*---------------------------------------------------------------------------*/
-LASZIP_API laszip_I32
+laszip_I32 
 laszip_unload_dll
 (
 );
@@ -586,15 +623,14 @@ laszip_unload_dll
 #include <fstream.h>
 #else
 #include <istream>
-#include <fstream>
-using namespace std;
+#include <ostream>
 #endif
 
 /*---------------------------------------------------------------------------*/
 LASZIP_API laszip_I32
 laszip_open_reader_stream(
     laszip_POINTER                     pointer
-    , istream&                         stream
+    , std::istream&                    stream
     , laszip_BOOL*                     is_compressed
 );
 
@@ -602,7 +638,7 @@ laszip_open_reader_stream(
 LASZIP_API laszip_I32
 laszip_open_writer_stream(
     laszip_POINTER                     pointer
-    , ostream&                         stream
+    , std::ostream&                    stream
     , laszip_BOOL                      compress
     , laszip_BOOL                      do_not_write_header
 );
